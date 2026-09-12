@@ -1,6 +1,6 @@
 {
   "name": "Nova AI",
-  "description": "Production-ready personal AI assistant with multi-provider API Hub, real-time voice, vision, and creative studio.",
+  "description": "Google Gemini-inspired personal AI assistant with dynamic model discovery, multi-provider API Hub, real-time voice, vision, and creative studio.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

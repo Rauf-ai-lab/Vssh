@@ -31,14 +31,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -74,18 +72,20 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.ui.AppTab
 import com.example.ui.MainViewModel
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.CrimsonRed
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.NovaGradient
-import com.example.ui.theme.SecondarySurface
-import com.example.ui.theme.SoftViolet
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.SurfaceVariantDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiGreen
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiPink
+import com.example.ui.theme.GeminiPurple
+import com.example.ui.theme.GeminiRed
+import com.example.ui.theme.GeminiSparkleGradient
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiSurfaceElevated
+import com.example.ui.theme.GeminiSurfaceVariant
+import com.example.ui.theme.GeminiTextMuted
+import com.example.ui.theme.GeminiTextPrimary
+import com.example.ui.theme.GeminiTextSecondary
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -95,7 +95,7 @@ fun StudioScreen(
 ) {
     val context = LocalContext.current
     var selectedTabIdx by remember { mutableIntStateOf(0) }
-    val tabTitles = listOf("Image Studio", "Music Studio", "Video Lab")
+    val tabTitles = listOf("Imagen Studio", "Music Studio", "Video Lab")
 
     val studioState by viewModel.studioImageState.collectAsState()
     val allConfigs by viewModel.allConfigs.collectAsState()
@@ -111,7 +111,7 @@ fun StudioScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepCharcoal)
+            .background(GeminiBackground)
     ) {
         // Studio Header
         Row(
@@ -124,7 +124,7 @@ fun StudioScreen(
                 modifier = Modifier
                     .size(28.dp)
                     .clip(CircleShape)
-                    .background(NovaGradient),
+                    .background(GeminiSparkleGradient),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -137,14 +137,14 @@ fun StudioScreen(
             Spacer(modifier = Modifier.width(10.dp))
             Column {
                 Text(
-                    text = "Creative Studio",
-                    color = TextPrimary,
+                    text = "Gemini Studio",
+                    color = GeminiTextPrimary,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Multi-modal generation & AI tools",
-                    color = TextSecondary,
+                    text = "High-fidelity generation with Imagen & multimodal AI",
+                    color = GeminiTextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -153,13 +153,13 @@ fun StudioScreen(
         // Subtabs
         ScrollableTabRow(
             selectedTabIndex = selectedTabIdx,
-            containerColor = SurfaceDark,
-            contentColor = ElectricBlue,
+            containerColor = GeminiSurface,
+            contentColor = GeminiBlue,
             edgePadding = 16.dp,
             indicator = { tabPositions ->
                 TabRowDefaults.SecondaryIndicator(
                     Modifier.tabIndicatorOffset(tabPositions[selectedTabIdx]),
-                    color = ElectricBlue
+                    color = GeminiBlue
                 )
             }
         ) {
@@ -172,7 +172,7 @@ fun StudioScreen(
                             text = title,
                             fontSize = 13.sp,
                             fontWeight = if (selectedTabIdx == idx) FontWeight.Bold else FontWeight.Normal,
-                            color = if (selectedTabIdx == idx) ElectricBlue else TextSecondary
+                            color = if (selectedTabIdx == idx) GeminiBlue else GeminiTextSecondary
                         )
                     }
                 )
@@ -233,8 +233,8 @@ private fun ImageStudioTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, SoftViolet.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiBlue.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
                     .padding(18.dp)
                     .testTag("image_api_unconfigured_card")
             ) {
@@ -242,13 +242,13 @@ private fun ImageStudioTab(
                     Icon(
                         imageVector = Icons.Default.ErrorOutline,
                         contentDescription = null,
-                        tint = SoftViolet,
+                        tint = GeminiBlue,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = "Image Generation API is not configured",
-                        color = TextPrimary,
+                        color = GeminiTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -256,8 +256,8 @@ private fun ImageStudioTab(
 
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "To generate high-fidelity images, configure an API key for Google Gemini (Free tier available) or OpenAI DALL-E in the Central API Hub.",
-                    color = TextSecondary,
+                    text = "To generate high-fidelity images, configure an API key for Google Gemini (Free tier available) in the Central API Hub.",
+                    color = GeminiTextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 18.sp
                 )
@@ -267,10 +267,10 @@ private fun ImageStudioTab(
                     ElevatedButton(
                         onClick = onConfigureApi,
                         colors = ButtonDefaults.elevatedButtonColors(
-                            containerColor = ElectricBlue,
-                            contentColor = Color.White
+                            containerColor = GeminiBlue,
+                            contentColor = Color(0xFF041E49)
                         ),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.testTag("btn_configure_image_api")
                     ) {
                         Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -280,7 +280,7 @@ private fun ImageStudioTab(
 
                     OutlinedButton(
                         onClick = onOpenKeyPortal,
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.testTag("btn_get_free_image_key")
                     ) {
                         Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(14.dp))
@@ -295,25 +295,25 @@ private fun ImageStudioTab(
         OutlinedTextField(
             value = state.prompt,
             onValueChange = onPromptChange,
-            placeholder = { Text("Describe the image you want to create...", color = TextMuted, fontSize = 14.sp) },
+            placeholder = { Text("Describe the image you want to create with Imagen...", color = GeminiTextMuted, fontSize = 14.sp) },
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("image_prompt_input"),
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SurfaceDark,
-                unfocusedContainerColor = SurfaceDark,
-                focusedBorderColor = ElectricBlue,
-                unfocusedBorderColor = BorderDark,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
+                focusedContainerColor = GeminiSurface,
+                unfocusedContainerColor = GeminiSurface,
+                focusedBorderColor = GeminiBlue,
+                unfocusedBorderColor = GeminiOutline,
+                focusedTextColor = GeminiTextPrimary,
+                unfocusedTextColor = GeminiTextPrimary
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             minLines = 3,
             maxLines = 5
         )
 
         // Inspiration Chips
-        Text(text = "Try an idea:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(text = "Try an idea:", color = GeminiTextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -327,18 +327,18 @@ private fun ImageStudioTab(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
-                        .background(SurfaceVariantDark)
-                        .border(1.dp, BorderDark, RoundedCornerShape(16.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                         .clickable { onPromptChange(idea) }
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
-                    Text(text = idea, color = TextPrimary, fontSize = 11.sp)
+                    Text(text = idea, color = GeminiTextPrimary, fontSize = 11.sp)
                 }
             }
         }
 
         // Aspect Ratio Selector
-        Text(text = "Aspect Ratio", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(text = "Aspect Ratio", color = GeminiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -349,15 +349,15 @@ private fun ImageStudioTab(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isSelected) ElectricBlue.copy(alpha = 0.2f) else SurfaceDark)
-                        .border(1.dp, if (isSelected) ElectricBlue else BorderDark, RoundedCornerShape(10.dp))
+                        .background(if (isSelected) GeminiBlue.copy(alpha = 0.2f) else GeminiSurface)
+                        .border(1.dp, if (isSelected) GeminiBlue else GeminiOutline, RoundedCornerShape(10.dp))
                         .clickable { onRatioChange(ratio) }
                         .padding(vertical = 10.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = ratio,
-                        color = if (isSelected) ElectricBlue else TextSecondary,
+                        color = if (isSelected) GeminiBlue else GeminiTextSecondary,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 12.sp
                     )
@@ -366,24 +366,24 @@ private fun ImageStudioTab(
         }
 
         // Style Selector
-        Text(text = "Visual Style", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(text = "Visual Style", color = GeminiTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            listOf("Realistic", "Anime", "3D Render", "Cyberpunk", "Watercolor", "Cinematic").forEach { style ->
+            listOf("Photorealistic", "Anime", "3D Digital Art", "Cinematic Lighting", "Watercolor Painting", "Studio Portrait").forEach { style ->
                 val isSelected = state.style == style
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isSelected) SoftViolet.copy(alpha = 0.25f) else SurfaceDark)
-                        .border(1.dp, if (isSelected) SoftViolet else BorderDark, RoundedCornerShape(16.dp))
+                        .background(if (isSelected) GeminiPurple.copy(alpha = 0.25f) else GeminiSurface)
+                        .border(1.dp, if (isSelected) GeminiPurple else GeminiOutline, RoundedCornerShape(16.dp))
                         .clickable { onStyleChange(style) }
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = style,
-                        color = if (isSelected) SoftViolet else TextSecondary,
+                        color = if (isSelected) GeminiPurple else GeminiTextSecondary,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         fontSize = 12.sp
                     )
@@ -393,16 +393,16 @@ private fun ImageStudioTab(
 
         // Generate Button
         val btnBgModifier = if (state.isGenerating || state.prompt.isBlank()) {
-            Modifier.background(SecondarySurface)
+            Modifier.background(GeminiSurfaceElevated)
         } else {
-            Modifier.background(NovaGradient)
+            Modifier.background(GeminiSparkleGradient)
         }
 
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .height(50.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .then(btnBgModifier)
                 .clickable(enabled = !state.isGenerating && state.prompt.isNotBlank()) {
                     onGenerate()
@@ -414,17 +414,17 @@ private fun ImageStudioTab(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
-                        color = ElectricBlue,
+                        color = GeminiBlue,
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("Creating masterpiece...", color = TextPrimary, fontSize = 14.sp)
+                    Text("Imagen is generating...", color = GeminiTextPrimary, fontSize = 14.sp)
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Brush, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Generate Image", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Generate with Imagen", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -434,12 +434,12 @@ private fun ImageStudioTab(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(CrimsonRed.copy(alpha = 0.15f))
-                    .border(1.dp, CrimsonRed.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(GeminiRed.copy(alpha = 0.15f))
+                    .border(1.dp, GeminiRed.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
                     .padding(12.dp)
             ) {
-                Text(text = state.error, color = CrimsonRed, fontSize = 12.sp)
+                Text(text = state.error, color = GeminiRed, fontSize = 12.sp)
             }
         }
 
@@ -449,8 +449,8 @@ private fun ImageStudioTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                     .padding(12.dp)
             ) {
                 if (!result.base64Data.isNullOrBlank()) {
@@ -493,8 +493,8 @@ private fun ImageStudioTab(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Nova Studio · ${state.style}",
-                        color = TextSecondary,
+                        text = "Gemini Imagen · ${state.style}",
+                        color = GeminiTextSecondary,
                         fontSize = 12.sp
                     )
 
@@ -503,7 +503,7 @@ private fun ImageStudioTab(
                             Toast.makeText(context, "Image saved to gallery.", Toast.LENGTH_SHORT).show()
                         }
                     ) {
-                        Icon(Icons.Default.Download, contentDescription = "Download Image", tint = ElectricBlue)
+                        Icon(Icons.Default.Download, contentDescription = "Download Image", tint = GeminiBlue)
                     }
                 }
             }
@@ -526,13 +526,13 @@ private fun MusicStudioTab() {
     ) {
         Text(
             text = "AI Music & Audio Composition",
-            color = TextPrimary,
+            color = GeminiTextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
             text = "Generate melodies, beats, lyrics, and harmonic progressions.",
-            color = TextSecondary,
+            color = GeminiTextSecondary,
             fontSize = 12.sp
         )
 
@@ -549,9 +549,9 @@ private fun MusicStudioTab() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp))
                     .padding(14.dp)
             ) {
                 Row(
@@ -560,15 +560,15 @@ private fun MusicStudioTab() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(genre, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(details, color = TextSecondary, fontSize = 11.sp)
+                        Text(genre, color = GeminiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(details, color = GeminiTextSecondary, fontSize = 11.sp)
                     }
 
                     Box(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(ElectricBlue.copy(alpha = 0.2f))
+                            .background(GeminiBlue.copy(alpha = 0.2f))
                             .clickable {
                                 isPlaying = !isPlaying
                                 Toast.makeText(context, if (isPlaying) "Playing $genre preview" else "Paused", Toast.LENGTH_SHORT).show()
@@ -578,7 +578,7 @@ private fun MusicStudioTab() {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Headphones else Icons.Default.PlayArrow,
                             contentDescription = "Play Track",
-                            tint = ElectricBlue,
+                            tint = GeminiBlue,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -598,13 +598,13 @@ private fun VideoLabTab() {
     ) {
         Text(
             text = "AI Video Generation Studio",
-            color = TextPrimary,
+            color = GeminiTextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Generate cinematic visual shots and storyboard camera movements.",
-            color = TextSecondary,
+            text = "Generate cinematic visual shots and storyboard camera movements with Veo.",
+            color = GeminiTextSecondary,
             fontSize = 12.sp
         )
 
@@ -618,9 +618,9 @@ private fun VideoLabTab() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp))
                     .padding(14.dp)
             ) {
                 Row(
@@ -631,15 +631,15 @@ private fun VideoLabTab() {
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(SecondarySurface),
+                            .background(GeminiSurfaceVariant),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Videocam, contentDescription = null, tint = SoftViolet, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Videocam, contentDescription = null, tint = GeminiPurple, modifier = Modifier.size(20.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        Text(desc, color = TextSecondary, fontSize = 11.sp)
+                        Text(title, color = GeminiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text(desc, color = GeminiTextSecondary, fontSize = 11.sp)
                     }
                 }
             }

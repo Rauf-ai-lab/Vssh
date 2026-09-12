@@ -17,6 +17,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,12 +33,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
@@ -46,13 +50,14 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ThumbDown
+import androidx.compose.material.icons.filled.ThumbUp
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -78,28 +83,31 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import com.example.R
 import com.example.data.local.entity.ChatMessageEntity
+import com.example.data.local.entity.DiscoveredModelEntity
 import com.example.ui.AppTab
 import com.example.ui.MainViewModel
 import com.example.ui.components.OfflineBanner
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.NovaGradient
-import com.example.ui.theme.SecondarySurface
-import com.example.ui.theme.SoftViolet
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.SurfaceVariantDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import kotlinx.coroutines.launch
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiBlueBright
+import com.example.ui.theme.GeminiGreen
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiOutlineFocused
+import com.example.ui.theme.GeminiPillGradient
+import com.example.ui.theme.GeminiPurple
+import com.example.ui.theme.GeminiSparkleGradient
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiSurfaceElevated
+import com.example.ui.theme.GeminiSurfaceVariant
+import com.example.ui.theme.GeminiTextMuted
+import com.example.ui.theme.GeminiTextPrimary
+import com.example.ui.theme.GeminiTextSecondary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,27 +116,26 @@ fun ChatScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val isOnline by viewModel.isOnline.collectAsState()
     val messages by viewModel.currentMessages.collectAsState()
     val isSending by viewModel.isSending.collectAsState()
     val enabledConfigs by viewModel.enabledConfigs.collectAsState()
     val selectedConfig by viewModel.selectedModelConfig.collectAsState()
+    val allDiscoveredModels by viewModel.allDiscoveredModels.collectAsState()
+    val isDiscoveringModels by viewModel.isDiscoveringModels.collectAsState()
     val attachedB64 by viewModel.attachedImageBase64.collectAsState()
 
     var inputText by remember { mutableStateOf("") }
-    var showModelMenu by remember { mutableStateOf(false) }
+    var showModelBottomSheet by remember { mutableStateOf(false) }
     var showAttachSheet by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
-    // Activity result launcher for image picker
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { viewModel.attachImageUri(it) }
     }
 
-    // Audio permission launcher for voice
     val recordAudioLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -151,10 +158,10 @@ fun ChatScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepCharcoal)
+            .background(GeminiBackground)
             .imePadding()
     ) {
-        // TOP APP BAR
+        // TOP APP BAR - Authentic Google Gemini Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -162,98 +169,43 @@ fun ChatScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Model Selector Pill Dropdown
-            Box {
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(SurfaceVariantDark)
-                        .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                        .clickable { showModelMenu = true }
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                        .testTag("model_selector_dropdown"),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(if (selectedConfig?.isConnected == true) ElectricBlue else SoftViolet)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = selectedConfig?.modelName?.ifBlank { "Select Model" } ?: "Select Model",
-                        color = TextPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowDropDown,
-                        contentDescription = "Switch Model",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                DropdownMenu(
-                    expanded = showModelMenu,
-                    onDismissRequest = { showModelMenu = false },
-                    modifier = Modifier
-                        .background(SurfaceDark)
-                        .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-                ) {
-                    Text(
-                        text = "Configured AI Models",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                    )
-                    HorizontalDivider(color = BorderDark)
-
-                    enabledConfigs.forEach { cfg ->
-                        DropdownMenuItem(
-                            text = {
-                                Column {
-                                    Text(
-                                        text = "${cfg.name} (${cfg.modelName})",
-                                        color = if (cfg.id == selectedConfig?.id) ElectricBlue else TextPrimary,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (cfg.id == selectedConfig?.id) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                    Text(
-                                        text = cfg.category,
-                                        color = TextMuted,
-                                        fontSize = 10.sp
-                                    )
-                                }
-                            },
-                            onClick = {
-                                viewModel.setSelectedConfig(cfg)
-                                showModelMenu = false
-                            }
-                        )
-                    }
-
-                    HorizontalDivider(color = BorderDark)
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Settings, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Manage in API Hub", color = ElectricBlue, fontSize = 12.sp)
-                            }
-                        },
-                        onClick = {
-                            showModelMenu = false
-                            viewModel.selectTab(AppTab.SETTINGS)
-                        }
-                    )
-                }
+            // Brand & Dynamic Model Selector Pill
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(24.dp))
+                    .clickable { showModelBottomSheet = true }
+                    .padding(horizontal = 14.dp, vertical = 7.dp)
+                    .testTag("model_selector_dropdown")
+            ) {
+                // Sparkle Icon with Gemini Gradient
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = GeminiBlue,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(7.dp))
+                Text(
+                    text = selectedConfig?.let {
+                        if (it.modelName.isNotBlank()) it.modelName else it.name
+                    } ?: "Gemini",
+                    color = GeminiTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Switch Model",
+                    tint = GeminiTextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
             }
 
-            // Right Action: New Chat Button
+            // Right Actions: New Chat & Hub
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(
                     onClick = { viewModel.createNewChat() },
@@ -261,8 +213,8 @@ fun ChatScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "New Conversation",
-                        tint = TextPrimary,
+                        contentDescription = "New chat",
+                        tint = GeminiTextPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -281,7 +233,7 @@ fun ChatScreen(
                 .fillMaxWidth()
         ) {
             if (messages.isEmpty()) {
-                EmptyStateView(
+                GeminiEmptyStateView(
                     onSuggestionClick = { suggestion ->
                         viewModel.sendMessage(suggestion)
                     }
@@ -298,13 +250,13 @@ fun ChatScreen(
 
                     items(messages, key = { it.id }) { msg ->
                         when (msg.role) {
-                            "user" -> UserMessageItem(msg)
-                            "assistant" -> AssistantMessageItem(
+                            "user" -> GeminiUserMessageItem(msg)
+                            "assistant" -> GeminiAssistantMessageItem(
                                 message = msg,
                                 onSpeak = { text -> viewModel.speechService.speak(text) },
                                 onCopy = { text ->
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("Nova AI", text))
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("Google Gemini", text))
                                     Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                 },
                                 onShare = { text ->
@@ -321,6 +273,9 @@ fun ChatScreen(
                                 onConfigureApi = { viewModel.selectTab(AppTab.SETTINGS) },
                                 onTestConnection = {
                                     selectedConfig?.let { viewModel.testConfig(it) }
+                                },
+                                onRefreshModels = {
+                                    selectedConfig?.let { viewModel.refreshModelsForConfig(it) }
                                 }
                             )
                         }
@@ -328,7 +283,7 @@ fun ChatScreen(
 
                     if (isSending) {
                         item {
-                            ThinkingIndicator()
+                            GeminiThinkingIndicator()
                         }
                     }
 
@@ -342,25 +297,25 @@ fun ChatScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(SurfaceVariantDark)
-                        .border(1.dp, BorderDark, RoundedCornerShape(8.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Image, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Image, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Image ready to analyze", color = TextPrimary, fontSize = 12.sp)
+                        Text("Image attached for vision analysis", color = GeminiTextPrimary, fontSize = 12.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Remove",
-                            tint = TextSecondary,
+                            tint = GeminiTextSecondary,
                             modifier = Modifier
                                 .size(16.dp)
                                 .clickable { viewModel.clearAttachment() }
@@ -370,14 +325,14 @@ fun ChatScreen(
             }
         }
 
-        // FLOATING PILL INPUT BAR
+        // GOOGLE GEMINI FLOATING INPUT PILL
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 8.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(SurfaceDark)
-                .border(1.dp, BorderDark, RoundedCornerShape(28.dp))
+                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(GeminiSurface)
+                .border(1.dp, GeminiOutline, RoundedCornerShape(32.dp))
                 .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -385,13 +340,13 @@ fun ChatScreen(
             IconButton(
                 onClick = { showAttachSheet = true },
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(40.dp)
                     .testTag("btn_attach_media")
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Attach media or tools",
-                    tint = TextSecondary,
+                    contentDescription = "Attach media or files",
+                    tint = GeminiTextSecondary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -400,16 +355,16 @@ fun ChatScreen(
             OutlinedTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                placeholder = { Text("Ask Nova anything...", color = TextMuted, fontSize = 14.sp) },
+                placeholder = { Text("Ask Gemini...", color = GeminiTextMuted, fontSize = 14.sp) },
                 modifier = Modifier
                     .weight(1f)
                     .testTag("chat_input_field"),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    focusedTextColor = TextPrimary,
-                    unfocusedTextColor = TextPrimary,
-                    cursorColor = ElectricBlue
+                    focusedTextColor = GeminiTextPrimary,
+                    unfocusedTextColor = GeminiTextPrimary,
+                    cursorColor = GeminiBlue
                 ),
                 maxLines = 4
             )
@@ -430,24 +385,24 @@ fun ChatScreen(
                     }
                 },
                 modifier = Modifier
-                    .size(38.dp)
+                    .size(40.dp)
                     .testTag("btn_voice_input")
             ) {
                 Icon(
                     imageVector = Icons.Default.Mic,
                     contentDescription = "Voice Input",
-                    tint = TextSecondary,
+                    tint = GeminiTextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
-            // Send Button OR Live Voice Waveform Button
+            // Send Button OR Gemini Live Waveform Button
             if (inputText.isNotBlank() || attachedB64 != null) {
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(NovaGradient)
+                        .background(GeminiSparkleGradient)
                         .clickable {
                             val textToSend = inputText
                             inputText = ""
@@ -468,7 +423,7 @@ fun ChatScreen(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(SurfaceVariantDark)
+                        .background(GeminiSurfaceElevated)
                         .clickable {
                             val hasPerm = ContextCompat.checkSelfPermission(
                                 context,
@@ -485,11 +440,236 @@ fun ChatScreen(
                 ) {
                     Icon(
                         imageVector = Icons.Default.GraphicEq,
-                        contentDescription = "Live Voice Mode",
-                        tint = ElectricBlue,
+                        contentDescription = "Gemini Live",
+                        tint = GeminiBlue,
                         modifier = Modifier.size(20.dp)
                     )
                 }
+            }
+        }
+    }
+
+    // GEMINI DYNAMIC MODEL SELECTOR BOTTOM SHEET
+    if (showModelBottomSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showModelBottomSheet = false },
+            containerColor = GeminiSurface,
+            sheetState = rememberModalBottomSheetState()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = GeminiBlue,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Model Discovery & Verification",
+                            color = GeminiTextPrimary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    if (isDiscoveringModels) {
+                        CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = GeminiBlue)
+                    } else {
+                        IconButton(
+                            onClick = {
+                                selectedConfig?.let { viewModel.refreshModelsForConfig(it) }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Refresh models",
+                                tint = GeminiBlue
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = "Live models discovered directly from your configured AI APIs",
+                    color = GeminiTextSecondary,
+                    fontSize = 12.sp
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Configured Providers List
+                Text(
+                    text = "Active AI Configurations",
+                    color = GeminiTextMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+
+                enabledConfigs.forEach { cfg ->
+                    val isSelected = cfg.id == selectedConfig?.id
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) GeminiSurfaceElevated else GeminiSurfaceVariant)
+                            .border(
+                                1.dp,
+                                if (isSelected) GeminiBlue.copy(alpha = 0.5f) else GeminiOutline,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable {
+                                viewModel.setSelectedConfig(cfg)
+                                showModelBottomSheet = false
+                            }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = cfg.name,
+                                    color = GeminiTextPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                if (cfg.isDefault) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(GeminiBlue.copy(alpha = 0.2f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("Active", color = GeminiBlue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Model: ${cfg.modelName.ifBlank { "Auto-discovering..." }}",
+                                color = GeminiTextSecondary,
+                                fontSize = 12.sp
+                            )
+                        }
+
+                        if (isSelected) {
+                            Icon(Icons.Default.Check, contentDescription = "Selected", tint = GeminiBlue, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+
+                // Discovered Models for current provider
+                val currentProviderType = selectedConfig?.providerType ?: "GEMINI"
+                val relevantDiscovered = allDiscoveredModels.filter { it.providerType == currentProviderType }
+
+                if (relevantDiscovered.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Text(
+                        text = "Discovered Models for $currentProviderType",
+                        color = GeminiTextMuted,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    relevantDiscovered.take(6).forEach { model ->
+                        val isCurrentModel = selectedConfig?.modelName == model.modelId
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 3.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isCurrentModel) GeminiSurfaceElevated else GeminiSurfaceVariant)
+                                .border(
+                                    1.dp,
+                                    if (isCurrentModel) GeminiBlue.copy(alpha = 0.4f) else GeminiOutline,
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable {
+                                    viewModel.selectModelForActiveConfig(model.modelId)
+                                    showModelBottomSheet = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = model.displayName.ifBlank { model.modelId },
+                                        color = GeminiTextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    if (model.freeTier) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(GeminiGreen.copy(alpha = 0.2f))
+                                                .padding(horizontal = 5.dp, vertical = 1.dp)
+                                        ) {
+                                            Text("Free Tier", color = GeminiGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                                Text(
+                                    text = model.modelId,
+                                    color = GeminiTextMuted,
+                                    fontSize = 10.sp
+                                )
+                            }
+
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (model.isVerified) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Verified",
+                                        tint = GeminiGreen,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Verified", color = GeminiGreen, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = GeminiOutline)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable {
+                            showModelBottomSheet = false
+                            viewModel.selectTab(AppTab.SETTINGS)
+                        }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Settings, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Central API Hub Settings", color = GeminiBlue, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -498,7 +678,7 @@ fun ChatScreen(
     if (showAttachSheet) {
         ModalBottomSheet(
             onDismissRequest = { showAttachSheet = false },
-            containerColor = SurfaceDark,
+            containerColor = GeminiSurface,
             sheetState = rememberModalBottomSheetState()
         ) {
             Column(
@@ -508,7 +688,7 @@ fun ChatScreen(
             ) {
                 Text(
                     text = "Add to conversation",
-                    color = TextPrimary,
+                    color = GeminiTextPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -517,8 +697,9 @@ fun ChatScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceVariantDark)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp))
                         .clickable {
                             showAttachSheet = false
                             imagePickerLauncher.launch("image/*")
@@ -526,11 +707,11 @@ fun ChatScreen(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Image, contentDescription = null, tint = ElectricBlue)
+                    Icon(Icons.Default.Image, contentDescription = null, tint = GeminiBlue)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Upload Image / Vision", color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text("Analyze diagrams, photos, or documents", color = TextSecondary, fontSize = 12.sp)
+                        Text("Upload Image / Vision", color = GeminiTextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("Analyze diagrams, photos, or documents with multimodal models", color = GeminiTextSecondary, fontSize = 12.sp)
                     }
                 }
 
@@ -539,8 +720,9 @@ fun ChatScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceVariantDark)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp))
                         .clickable {
                             showAttachSheet = false
                             viewModel.sendMessage("Turn my class notes into custom quizzes")
@@ -548,11 +730,11 @@ fun ChatScreen(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Lightbulb, contentDescription = null, tint = SoftViolet)
+                    Icon(Icons.Default.Lightbulb, contentDescription = null, tint = GeminiPurple)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Interactive Quiz Generator", color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text("Create multi-choice knowledge checks", color = TextSecondary, fontSize = 12.sp)
+                        Text("Interactive Quiz Generator", color = GeminiTextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("Create multi-choice knowledge checks", color = GeminiTextSecondary, fontSize = 12.sp)
                     }
                 }
 
@@ -561,8 +743,9 @@ fun ChatScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceVariantDark)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp))
                         .clickable {
                             showAttachSheet = false
                             viewModel.sendMessage("Deep dive: Roman aqueducts architecture and engineering")
@@ -570,11 +753,11 @@ fun ChatScreen(
                         .padding(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Default.Psychology, contentDescription = null, tint = ElectricBlue)
+                    Icon(Icons.Default.Psychology, contentDescription = null, tint = GeminiBlue)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Deep Dive & Architecture Diagrams", color = TextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                        Text("Explore annotated architectural components", color = TextSecondary, fontSize = 12.sp)
+                        Text("Deep Dive & Architecture Diagrams", color = GeminiTextPrimary, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        Text("Explore annotated architectural components", color = GeminiTextSecondary, fontSize = 12.sp)
                     }
                 }
                 Spacer(modifier = Modifier.height(20.dp))
@@ -584,83 +767,96 @@ fun ChatScreen(
 }
 
 @Composable
-private fun EmptyStateView(onSuggestionClick: (String) -> Unit) {
+private fun GeminiEmptyStateView(onSuggestionClick: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            modifier = Modifier
-                .size(60.dp)
-                .clip(CircleShape)
-                .background(SecondarySurface)
-                .border(1.dp, BorderDark, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.GraphicEq,
-                contentDescription = null,
-                tint = ElectricBlue,
-                modifier = Modifier.size(30.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        // Signature Google Gemini Greeting with Gradient Typography
         Text(
-            text = "Nova AI",
-            color = TextPrimary,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold
+            text = "Hello, Rauf",
+            style = TextStyle(
+                brush = GeminiSparkleGradient,
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold
+            )
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Your intelligent companion for every task.",
-            color = TextSecondary,
-            fontSize = 13.sp
+            text = "How can I help you today?",
+            color = GeminiTextSecondary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Normal
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
+        // Curated Gemini Suggestion Cards
         val suggestions = listOf(
-            "Turn class notes into custom quizzes",
-            "Deep dive: Roman aqueducts architecture",
-            "Generate 90s rap beats & lyrics",
-            "Analyze and explain complex documents"
+            Pair("Help me write", "Draft a professional email reply"),
+            Pair("Brainstorm ideas", "5 innovative AI product concepts"),
+            Pair("Create in Studio", "Generate high-res conceptual images"),
+            Pair("Explain concepts", "Quantum computing in simple terms")
         )
 
-        suggestions.forEach { suggestion ->
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(12.dp))
-                    .clickable { onSuggestionClick(suggestion) }
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Text(
-                    text = suggestion,
-                    color = TextPrimary,
-                    fontSize = 13.sp
-                )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            suggestions.forEach { (title, subtitle) ->
+                Box(
+                    modifier = Modifier
+                        .width(160.dp)
+                        .height(130.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(GeminiSurface)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
+                        .clickable { onSuggestionClick("$title: $subtitle") }
+                        .padding(14.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = title,
+                            color = GeminiTextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        )
+                        Text(
+                            text = subtitle,
+                            color = GeminiTextSecondary,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            tint = GeminiBlue,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun UserMessageItem(message: ChatMessageEntity) {
+private fun GeminiUserMessageItem(message: ChatMessageEntity) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .testTag("user_message_bubble"),
         horizontalAlignment = Alignment.End
     ) {
-        // Thumbnail if image attached
+        // Attached Image Preview
         if (!message.mediaUri.isNullOrBlank() && message.mediaUri.contains("base64,")) {
             val base64Data = message.mediaUri.substringAfter("base64,")
             val decodedBytes = try {
@@ -677,8 +873,8 @@ private fun UserMessageItem(message: ChatMessageEntity) {
                         modifier = Modifier
                             .padding(bottom = 6.dp)
                             .size(160.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, BorderDark, RoundedCornerShape(12.dp)),
+                            .clip(RoundedCornerShape(14.dp))
+                            .border(1.dp, GeminiOutline, RoundedCornerShape(14.dp)),
                         contentScale = ContentScale.Crop
                     )
                 }
@@ -687,14 +883,14 @@ private fun UserMessageItem(message: ChatMessageEntity) {
 
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp))
-                .background(SurfaceVariantDark)
-                .border(1.dp, BorderDark, RoundedCornerShape(18.dp, 18.dp, 4.dp, 18.dp))
+                .clip(RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp))
+                .background(GeminiSurfaceVariant)
+                .border(1.dp, GeminiOutline, RoundedCornerShape(20.dp, 20.dp, 4.dp, 20.dp))
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Text(
                 text = message.content,
-                color = TextPrimary,
+                color = GeminiTextPrimary,
                 fontSize = 14.sp,
                 lineHeight = 20.sp
             )
@@ -703,7 +899,7 @@ private fun UserMessageItem(message: ChatMessageEntity) {
 }
 
 @Composable
-private fun AssistantMessageItem(
+private fun GeminiAssistantMessageItem(
     message: ChatMessageEntity,
     onSpeak: (String) -> Unit,
     onCopy: (String) -> Unit,
@@ -716,26 +912,32 @@ private fun AssistantMessageItem(
         horizontalAlignment = Alignment.Start
     ) {
         Row(verticalAlignment = Alignment.Top) {
-            // Nova Avatar
+            // Google Gemini Sparkle Avatar
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(NovaGradient),
+                    .background(GeminiPillGradient)
+                    .border(1.dp, GeminiBlue.copy(alpha = 0.3f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("N", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = "Gemini",
+                    tint = GeminiBlue,
+                    modifier = Modifier.size(16.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 // Assistant Text Body
                 Text(
                     text = message.content,
-                    color = TextPrimary,
+                    color = GeminiTextPrimary,
                     fontSize = 14.sp,
-                    lineHeight = 21.sp
+                    lineHeight = 22.sp
                 )
 
                 // Interactive Cards if present
@@ -747,46 +949,70 @@ private fun AssistantMessageItem(
                     DiagramCard(cardJson = message.cardJson)
                 }
 
-                // Action Bar (Listen/TTS, Copy, Share)
+                // Google Gemini Action Row
                 Row(
                     modifier = Modifier
-                        .padding(top = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(top = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = { onSpeak(message.spokenText ?: message.content) },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.VolumeUp,
-                            contentDescription = "Listen with Text-to-Speech",
-                            tint = TextSecondary,
+                            contentDescription = "Read aloud",
+                            tint = GeminiTextSecondary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
 
                     IconButton(
                         onClick = { onCopy(message.content) },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.ContentCopy,
                             contentDescription = "Copy message",
-                            tint = TextSecondary,
+                            tint = GeminiTextSecondary,
                             modifier = Modifier.size(15.dp)
                         )
                     }
 
                     IconButton(
                         onClick = { onShare(message.content) },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Share,
                             contentDescription = "Share message",
-                            tint = TextSecondary,
+                            tint = GeminiTextSecondary,
                             modifier = Modifier.size(15.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { /* Feedback thumbs up */ },
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ThumbUp,
+                            contentDescription = "Good response",
+                            tint = GeminiTextMuted,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { /* Feedback thumbs down */ },
+                        modifier = Modifier.size(26.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ThumbDown,
+                            contentDescription = "Bad response",
+                            tint = GeminiTextMuted,
+                            modifier = Modifier.size(14.dp)
                         )
                     }
                 }
@@ -796,7 +1022,7 @@ private fun AssistantMessageItem(
 }
 
 @Composable
-private fun ThinkingIndicator() {
+private fun GeminiThinkingIndicator() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -807,19 +1033,19 @@ private fun ThinkingIndicator() {
             modifier = Modifier
                 .size(26.dp)
                 .clip(CircleShape)
-                .background(SecondarySurface),
+                .background(GeminiSurfaceVariant),
             contentAlignment = Alignment.Center
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.size(14.dp),
-                color = ElectricBlue,
+                color = GeminiBlue,
                 strokeWidth = 2.dp
             )
         }
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-            text = "Nova is thinking...",
-            color = TextSecondary,
+            text = "Gemini is thinking...",
+            color = GeminiTextSecondary,
             fontSize = 12.sp
         )
     }

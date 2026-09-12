@@ -17,12 +17,11 @@ class GeminiProvider : AiProvider {
     private val client = HttpClientFactory.okHttpClient
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    override suspend fun testConnection(config: ApiConfigEntity): Result<ConnectionTestResult> =
+    override suspend fun listModels(config: ApiConfigEntity): Result<List<DiscoveredModel>> =
         withContext(Dispatchers.IO) {
-            val startTime = System.currentTimeMillis()
             val apiKey = config.apiKey.trim()
             if (apiKey.isBlank()) {
-                return@withContext Result.failure(IllegalArgumentException("Gemini API key is empty. Please enter your API key."))
+                return@withContext Result.failure(IllegalArgumentException("Gemini API key is empty. Configure it in API Hub."))
             }
 
             val baseUrl = if (config.baseUrl.isNotBlank()) config.baseUrl.trimEnd('/') else "https://generativelanguage.googleapis.com"
@@ -35,56 +34,218 @@ class GeminiProvider : AiProvider {
                     .build()
 
                 client.newCall(request).execute().use { response ->
-                    val latency = System.currentTimeMillis() - startTime
                     val body = response.body?.string().orEmpty()
-
                     if (!response.isSuccessful) {
-                        val errMsg = parseError(body, response.code)
-                        return@withContext Result.failure(Exception(errMsg))
+                        return@withContext Result.failure(Exception(parseError(body, response.code)))
                     }
 
                     val json = JSONObject(body)
                     val modelsArray = json.optJSONArray("models") ?: JSONArray()
-                    val available = mutableListOf<String>()
+                    val discovered = mutableListOf<DiscoveredModel>()
+
                     for (i in 0 until modelsArray.length()) {
                         val m = modelsArray.getJSONObject(i)
-                        val name = m.optString("name").removePrefix("models/")
-                        available.add(name)
-                    }
+                        val rawName = m.optString("name")
+                        val modelId = rawName.removePrefix("models/")
+                        val displayName = m.optString("displayName").ifBlank { modelId }
+                        val description = m.optString("description")
+                        val version = m.optString("version")
+                        val inputTokenLimit = m.optInt("inputTokenLimit", 0)
 
-                    // Check if selected model is available
-                    val requestedModel = config.modelName.trim().removePrefix("models/")
-                    val modelFound = requestedModel.isBlank() || available.any { it.equals(requestedModel, ignoreCase = true) }
+                        // Check supported methods
+                        val methodsArr = m.optJSONArray("supportedGenerationMethods")
+                        val methods = mutableListOf<String>()
+                        if (methodsArr != null) {
+                            for (j in 0 until methodsArr.length()) {
+                                methods.add(methodsArr.getString(j))
+                            }
+                        }
 
-                    if (!modelFound) {
-                        return@withContext Result.success(
-                            ConnectionTestResult(
-                                success = false,
-                                latencyMs = latency,
-                                message = "Connected to Google AI Studio, but model '$requestedModel' was not found in your available models list.",
-                                availableModels = available
+                        // Filter for models supporting content generation
+                        val supportsGenerate = methods.contains("generateContent")
+                        if (!supportsGenerate) continue
+
+                        val lowerId = modelId.lowercase()
+                        val isImageGen = lowerId.contains("image") || lowerId.contains("imagen")
+                        val isFlash = lowerId.contains("flash") || lowerId.contains("lite")
+                        val isPro = lowerId.contains("pro")
+                        val isEmbedding = lowerId.contains("embedding") || lowerId.contains("embed")
+
+                        if (isEmbedding) continue
+
+                        val speedCategory = when {
+                            isFlash -> "LIGHTNING"
+                            isPro -> "REASONING"
+                            else -> "FAST"
+                        }
+
+                        // Google AI Studio models have generous free tier allowances
+                        val hasFreeTier = true
+                        val freeTierNote = "Free tier available in Google AI Studio"
+
+                        val inputCaps = if (isImageGen) "text" else "text,image,audio"
+                        val outputCaps = if (isImageGen) "image" else "text"
+
+                        discovered.add(
+                            DiscoveredModel(
+                                modelId = modelId,
+                                displayName = displayName,
+                                description = description,
+                                version = version,
+                                freeTier = hasFreeTier,
+                                freeTierNote = freeTierNote,
+                                inputCapabilities = inputCaps,
+                                outputCapabilities = outputCaps,
+                                supportsVision = !isImageGen,
+                                supportsImageGeneration = isImageGen,
+                                supportsAudio = !isImageGen && (isFlash || isPro),
+                                supportsStreaming = !isImageGen,
+                                supportsRealtime = lowerId.contains("live") || lowerId.contains("realtime"),
+                                contextWindow = inputTokenLimit,
+                                speedCategory = speedCategory
                             )
                         )
                     }
 
-                    Result.success(
-                        ConnectionTestResult(
-                            success = true,
-                            latencyMs = latency,
-                            message = "Connected successfully. ${available.size} models verified.",
-                            availableModels = available
-                        )
-                    )
+                    if (discovered.isEmpty()) {
+                        return@withContext Result.failure(Exception("No compatible generation models discovered from Google AI Studio."))
+                    }
+
+                    Result.success(discovered)
                 }
             } catch (e: Exception) {
-                Result.failure(Exception("Network error while connecting to Gemini: ${e.localizedMessage ?: e.message}"))
+                Result.failure(Exception("Failed to discover models from Google AI Studio: ${e.localizedMessage ?: e.message}"))
             }
         }
 
-    override suspend fun verifyModel(config: ApiConfigEntity): Result<Boolean> =
+    override suspend fun verifyModel(
+        config: ApiConfigEntity,
+        modelId: String,
+        capability: String
+    ): Result<ModelVerificationResult> = withContext(Dispatchers.IO) {
+        val apiKey = config.apiKey.trim()
+        if (apiKey.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Gemini API key is empty."))
+        }
+
+        val cleanModel = modelId.trim().removePrefix("models/")
+        if (cleanModel.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Model ID is empty."))
+        }
+
+        val baseUrl = if (config.baseUrl.isNotBlank()) config.baseUrl.trimEnd('/') else "https://generativelanguage.googleapis.com"
+        val url = "$baseUrl/v1beta/models/$cleanModel:generateContent?key=$apiKey"
+        val startTime = System.currentTimeMillis()
+
+        try {
+            val payload = JSONObject()
+            val contentsArr = JSONArray()
+            val contentObj = JSONObject().put("role", "user")
+            val partsArr = JSONArray().put(JSONObject().put("text", "ping"))
+            contentObj.put("parts", partsArr)
+            contentsArr.put(contentObj)
+            payload.put("contents", contentsArr)
+
+            val genConfig = JSONObject().put("maxOutputTokens", 2)
+            payload.put("generationConfig", genConfig)
+
+            val request = Request.Builder()
+                .url(url)
+                .post(payload.toString().toRequestBody(jsonMediaType))
+                .build()
+
+            client.newCall(request).execute().use { response ->
+                val latency = System.currentTimeMillis() - startTime
+                val body = response.body?.string().orEmpty()
+
+                if (response.code == 404 || body.contains("NOT_FOUND", ignoreCase = true)) {
+                    return@withContext Result.success(
+                        ModelVerificationResult(
+                            verified = false,
+                            latencyMs = latency,
+                            message = "Model '$cleanModel' was not found (404) or is deprecated.",
+                            statusCode = 404,
+                            is404 = true
+                        )
+                    )
+                }
+
+                if (!response.isSuccessful) {
+                    val errMsg = parseError(body, response.code)
+                    return@withContext Result.success(
+                        ModelVerificationResult(
+                            verified = false,
+                            latencyMs = latency,
+                            message = errMsg,
+                            statusCode = response.code,
+                            is404 = response.code == 404
+                        )
+                    )
+                }
+
+                Result.success(
+                    ModelVerificationResult(
+                        verified = true,
+                        latencyMs = latency,
+                        message = "Model '$cleanModel' verified successfully ($latency ms).",
+                        statusCode = 200,
+                        is404 = false
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Verification request failed for $cleanModel: ${e.localizedMessage ?: e.message}"))
+        }
+    }
+
+    override suspend fun testConnection(config: ApiConfigEntity): Result<ConnectionTestResult> =
         withContext(Dispatchers.IO) {
-            val test = testConnection(config)
-            test.map { it.success }
+            val startTime = System.currentTimeMillis()
+            val apiKey = config.apiKey.trim()
+            if (apiKey.isBlank()) {
+                return@withContext Result.failure(IllegalArgumentException("Gemini API key is empty. Please enter your API key."))
+            }
+
+            // 1. Discover actual models
+            val modelsResult = listModels(config)
+            if (modelsResult.isFailure) {
+                val err = modelsResult.exceptionOrNull()
+                return@withContext Result.failure(err ?: Exception("Failed to list models from Gemini."))
+            }
+
+            val models = modelsResult.getOrNull().orEmpty()
+            val modelNames = models.map { it.modelId }
+            val latency = System.currentTimeMillis() - startTime
+
+            // 2. If a specific model is targeted in config, verify it specifically
+            val targetModel = config.modelName.trim().removePrefix("models/")
+            if (targetModel.isNotBlank()) {
+                val verifyRes = verifyModel(config, targetModel)
+                if (verifyRes.isSuccess) {
+                    val v = verifyRes.getOrNull()!!
+                    if (!v.verified) {
+                        return@withContext Result.success(
+                            ConnectionTestResult(
+                                success = false,
+                                latencyMs = v.latencyMs,
+                                message = if (v.is404) "Selected model '$targetModel' not found (404). Please choose an available model." else v.message,
+                                availableModels = modelNames,
+                                discoveredModelsCount = models.size
+                            )
+                        )
+                    }
+                }
+            }
+
+            Result.success(
+                ConnectionTestResult(
+                    success = true,
+                    latencyMs = latency,
+                    message = "Connected to Google AI Studio. ${models.size} models discovered.",
+                    availableModels = modelNames,
+                    discoveredModelsCount = models.size
+                )
+            )
         }
 
     override suspend fun generateChat(
@@ -98,19 +259,23 @@ class GeminiProvider : AiProvider {
             return@withContext Result.failure(IllegalArgumentException("Gemini API key is missing. Please configure it in API Hub."))
         }
 
-        val rawModel = if (config.modelName.isNotBlank()) config.modelName.trim() else "gemini-2.5-flash"
-        val model = rawModel.removePrefix("models/")
+        // Use dynamically configured model without hardcoded defaults
+        val rawModel = config.modelName.trim().removePrefix("models/")
+        if (rawModel.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("No model selected. Please select a model in Central API Hub."))
+        }
+
         val baseUrl = if (config.baseUrl.isNotBlank()) config.baseUrl.trimEnd('/') else "https://generativelanguage.googleapis.com"
-        val url = "$baseUrl/v1beta/models/$model:generateContent?key=$apiKey"
+        val url = "$baseUrl/v1beta/models/$rawModel:generateContent?key=$apiKey"
 
         try {
             val payload = JSONObject()
 
-            // System instructions (persona & user memory preferences)
+            // System instructions
             val systemParts = mutableListOf<String>()
-            systemParts.add("You are Nova, an intelligent, modern, versatile AI assistant. Be helpful, concise, thoughtful, and highly capable.")
+            systemParts.add("You are Gemini, a helpful, intelligent, multimodal personal AI assistant. Be direct, clear, accurate, and supportive.")
             if (!memoryPrompt.isNullOrBlank()) {
-                systemParts.add("User's Long-Term Memory & Preferences:\n$memoryPrompt")
+                systemParts.add("User's Long-Term Preferences & Memory:\n$memoryPrompt")
             }
             val sysInstructionObj = JSONObject()
             val sysPartsArr = JSONArray()
@@ -118,16 +283,15 @@ class GeminiProvider : AiProvider {
             sysInstructionObj.put("parts", sysPartsArr)
             payload.put("systemInstruction", sysInstructionObj)
 
-            // Build contents history
+            // History
             val contentsArr = JSONArray()
-            val relevantMessages = messages.takeLast(12) // sliding context window
+            val relevantMessages = messages.takeLast(12)
             for (msg in relevantMessages) {
                 if (msg.role == "error" || msg.role == "system") continue
                 val role = if (msg.role == "user") "user" else "model"
                 val contentObj = JSONObject().put("role", role)
                 val partsArr = JSONArray()
 
-                // If media attached (image Base64)
                 if (msg.role == "user" && !msg.mediaUri.isNullOrBlank() && msg.mediaType?.startsWith("image") == true) {
                     val base64Data = msg.mediaUri.substringAfter("base64,", msg.mediaUri)
                     val mime = if (msg.mediaUri.contains("image/png")) "image/png" else "image/jpeg"
@@ -143,7 +307,6 @@ class GeminiProvider : AiProvider {
             }
             payload.put("contents", contentsArr)
 
-            // Generation config
             val genConfig = JSONObject()
                 .put("temperature", 0.7)
                 .put("topP", 0.95)
@@ -156,6 +319,10 @@ class GeminiProvider : AiProvider {
 
             client.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
+                if (response.code == 404 || body.contains("NOT_FOUND", ignoreCase = true)) {
+                    return@withContext Result.failure(Exception("[404_MODEL_NOT_FOUND] Model '$rawModel' does not exist or is deprecated."))
+                }
+
                 if (!response.isSuccessful) {
                     val errMsg = parseError(body, response.code)
                     return@withContext Result.failure(Exception(errMsg))
@@ -188,7 +355,8 @@ class GeminiProvider : AiProvider {
                 Result.success(
                     ChatResponse(
                         text = fullText,
-                        spokenText = cleanSpeech
+                        spokenText = cleanSpeech,
+                        modelUsed = rawModel
                     )
                 )
             }
@@ -208,14 +376,13 @@ class GeminiProvider : AiProvider {
             return@withContext Result.failure(IllegalArgumentException("Gemini API key is not configured for image generation."))
         }
 
-        val rawModel = if (config.modelName.isNotBlank() && config.modelName.contains("image")) {
-            config.modelName.trim()
-        } else {
-            "gemini-2.5-flash-image"
+        val rawModel = config.modelName.trim().removePrefix("models/")
+        if (rawModel.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Image model is not configured."))
         }
-        val model = rawModel.removePrefix("models/")
+
         val baseUrl = if (config.baseUrl.isNotBlank()) config.baseUrl.trimEnd('/') else "https://generativelanguage.googleapis.com"
-        val url = "$baseUrl/v1beta/models/$model:generateContent?key=$apiKey"
+        val url = "$baseUrl/v1beta/models/$rawModel:generateContent?key=$apiKey"
 
         try {
             val payload = JSONObject()
@@ -243,6 +410,9 @@ class GeminiProvider : AiProvider {
 
             client.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
+                if (response.code == 404 || body.contains("NOT_FOUND", ignoreCase = true)) {
+                    return@withContext Result.failure(Exception("[404_MODEL_NOT_FOUND] Image model '$rawModel' was not found (404)."))
+                }
                 if (!response.isSuccessful) {
                     val errMsg = parseError(body, response.code)
                     return@withContext Result.failure(Exception(errMsg))
@@ -287,13 +457,12 @@ class GeminiProvider : AiProvider {
             val json = JSONObject(body)
             val errorObj = json.optJSONObject("error")
             val message = errorObj?.optString("message") ?: body
-            val status = errorObj?.optString("status") ?: ""
             when (statusCode) {
                 400 -> "Bad Request: $message"
-                401, 403 -> "Authentication failed ($statusCode): Invalid or unauthorized API key. Check your key in API Hub."
+                401, 403 -> "Authentication failed ($statusCode): Invalid or unauthorized API key."
                 404 -> "Model not found (404): The requested model does not exist or is deprecated."
-                429 -> "Rate limit reached (429): Too many requests or quota exhausted."
-                500, 503 -> "Server error ($statusCode): Provider service temporarily unavailable."
+                429 -> "Rate limit reached (429): Quota exhausted or rate limit hit."
+                500, 503 -> "Server error ($statusCode): Google AI Studio temporarily unavailable."
                 else -> "Error ($statusCode): $message"
             }
         } catch (e: Exception) {

@@ -9,6 +9,6 @@ data class ChatSessionEntity(
     val title: String,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
-    val modelUsed: String = "gemini-2.5-flash",
+    val modelUsed: String = "",
     val isPinned: Boolean = false
 )

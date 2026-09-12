@@ -5,8 +5,7 @@ data class ProviderTemplate(
     val category: String, // "Chat / LLM", "Image Generation", "Voice", "Vision"
     val providerType: String, // "GEMINI", "OPENAI_COMPATIBLE"
     val defaultBaseUrl: String,
-    val defaultModel: String,
-    val supportedModels: List<String>,
+    val initialSuggestedModel: String = "",
     val apiKeyUrl: String,
     val hasFreeTier: Boolean,
     val freeTierLabel: String,
@@ -31,30 +30,18 @@ object ProviderRegistry {
             category = "Chat / LLM",
             providerType = "GEMINI",
             defaultBaseUrl = "https://generativelanguage.googleapis.com",
-            defaultModel = "gemini-2.5-flash",
-            supportedModels = listOf(
-                "gemini-2.5-flash",
-                "gemini-3.1-pro-preview",
-                "gemini-3.1-flash-lite-preview",
-                "gemini-2.5-flash-image"
-            ),
+            initialSuggestedModel = "", // Discovered dynamically from /v1beta/models
             apiKeyUrl = "https://aistudio.google.com/app/apikey",
             hasFreeTier = true,
             freeTierLabel = "Get Free Gemini API Key",
-            description = "Google AI Studio with high rate limits, multimodal vision, and generous free tier."
+            description = "Google AI Studio with dynamic model discovery, multimodal vision, and free tier."
         ),
         ProviderTemplate(
             name = "Groq Cloud",
             category = "Chat / LLM",
             providerType = "OPENAI_COMPATIBLE",
             defaultBaseUrl = "https://api.groq.com/openai/v1",
-            defaultModel = "llama-3.3-70b-versatile",
-            supportedModels = listOf(
-                "llama-3.3-70b-versatile",
-                "llama-3.1-8b-instant",
-                "mixtral-8x7b-32768",
-                "gemma2-9b-it"
-            ),
+            initialSuggestedModel = "",
             apiKeyUrl = "https://console.groq.com/keys",
             hasFreeTier = true,
             freeTierLabel = "Get Free Groq API Key",
@@ -65,13 +52,7 @@ object ProviderRegistry {
             category = "Chat / LLM",
             providerType = "OPENAI_COMPATIBLE",
             defaultBaseUrl = "https://api.openai.com/v1",
-            defaultModel = "gpt-4o-mini",
-            supportedModels = listOf(
-                "gpt-4o-mini",
-                "gpt-4o",
-                "o3-mini",
-                "dall-e-3"
-            ),
+            initialSuggestedModel = "",
             apiKeyUrl = "https://platform.openai.com/api-keys",
             hasFreeTier = false,
             freeTierLabel = "Get OpenAI API Key",
@@ -82,28 +63,18 @@ object ProviderRegistry {
             category = "Chat / LLM",
             providerType = "OPENAI_COMPATIBLE",
             defaultBaseUrl = "https://api.deepseek.com",
-            defaultModel = "deepseek-chat",
-            supportedModels = listOf(
-                "deepseek-chat",
-                "deepseek-reasoner"
-            ),
+            initialSuggestedModel = "",
             apiKeyUrl = "https://platform.deepseek.com/api_keys",
-            hasFreeTier = true,
+            hasFreeTier = false,
             freeTierLabel = "Get DeepSeek API Key",
-            description = "Competitive open-weights reasoning model with low-cost API."
+            description = "Competitive open-weights reasoning model with low-cost pay-as-you-go API."
         ),
         ProviderTemplate(
             name = "Local Ollama / Custom",
             category = "Chat / LLM",
             providerType = "OPENAI_COMPATIBLE",
             defaultBaseUrl = "http://localhost:11434/v1",
-            defaultModel = "llama3.2",
-            supportedModels = listOf(
-                "llama3.2",
-                "mistral",
-                "phi3",
-                "qwen2.5"
-            ),
+            initialSuggestedModel = "",
             apiKeyUrl = "https://ollama.com",
             hasFreeTier = true,
             freeTierLabel = "Ollama Setup Guide",
@@ -114,11 +85,7 @@ object ProviderRegistry {
             category = "Image Generation",
             providerType = "GEMINI",
             defaultBaseUrl = "https://generativelanguage.googleapis.com",
-            defaultModel = "gemini-2.5-flash-image",
-            supportedModels = listOf(
-                "gemini-2.5-flash-image",
-                "gemini-3.1-flash-image-preview"
-            ),
+            initialSuggestedModel = "",
             apiKeyUrl = "https://aistudio.google.com/app/apikey",
             hasFreeTier = true,
             freeTierLabel = "Get Free Image API Key",

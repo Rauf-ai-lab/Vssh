@@ -17,9 +17,8 @@ class OpenAiCompatibleProvider : AiProvider {
     private val client = HttpClientFactory.okHttpClient
     private val jsonMediaType = "application/json; charset=utf-8".toMediaType()
 
-    override suspend fun testConnection(config: ApiConfigEntity): Result<ConnectionTestResult> =
+    override suspend fun listModels(config: ApiConfigEntity): Result<List<DiscoveredModel>> =
         withContext(Dispatchers.IO) {
-            val startTime = System.currentTimeMillis()
             val apiKey = config.apiKey.trim()
             val rawBase = config.baseUrl.trim().ifEmpty { "https://api.openai.com/v1" }
             val baseUrl = rawBase.trimEnd('/')
@@ -37,54 +36,219 @@ class OpenAiCompatibleProvider : AiProvider {
                 }
 
                 client.newCall(reqBuilder.build()).execute().use { response ->
-                    val latency = System.currentTimeMillis() - startTime
                     val body = response.body?.string().orEmpty()
-
                     if (!response.isSuccessful) {
-                        val errMsg = parseError(body, response.code)
-                        return@withContext Result.failure(Exception(errMsg))
+                        return@withContext Result.failure(Exception(parseError(body, response.code)))
                     }
 
                     val json = JSONObject(body)
                     val dataArr = json.optJSONArray("data") ?: JSONArray()
-                    val modelsList = mutableListOf<String>()
+                    val discovered = mutableListOf<DiscoveredModel>()
+
+                    val isGroq = baseUrl.contains("groq.com", ignoreCase = true)
+                    val isOllama = baseUrl.contains("localhost") || baseUrl.contains("127.0.0.1") || baseUrl.contains("11434")
+                    val isOpenAi = baseUrl.contains("openai.com", ignoreCase = true)
+                    val isDeepSeek = baseUrl.contains("deepseek.com", ignoreCase = true)
+
                     for (i in 0 until dataArr.length()) {
                         val m = dataArr.getJSONObject(i)
-                        modelsList.add(m.optString("id"))
-                    }
+                        val modelId = m.optString("id").trim()
+                        if (modelId.isBlank()) continue
 
-                    val requestedModel = config.modelName.trim()
-                    val modelFound = requestedModel.isBlank() || modelsList.any { it.equals(requestedModel, ignoreCase = true) }
+                        val lowerId = modelId.lowercase()
+                        // Skip embeddings, moderation, tts, whisper, or audio-transcription from primary chat
+                        if (lowerId.contains("embedding") || lowerId.contains("moderation") ||
+                            lowerId.contains("whisper") || lowerId.contains("tts")
+                        ) {
+                            continue
+                        }
 
-                    if (!modelFound && modelsList.isNotEmpty()) {
-                        return@withContext Result.success(
-                            ConnectionTestResult(
-                                success = false,
-                                latencyMs = latency,
-                                message = "Connected to endpoint, but model '$requestedModel' is unavailable. Choose an available model from the list.",
-                                availableModels = modelsList
+                        val isImageGen = lowerId.contains("dall-e") || lowerId.contains("image")
+                        val isVision = lowerId.contains("vision") || lowerId.contains("4o") ||
+                                lowerId.contains("vl") || lowerId.contains("omni") ||
+                                lowerId.contains("gemini")
+                        val isFast = lowerId.contains("mini") || lowerId.contains("8b") ||
+                                lowerId.contains("instant") || lowerId.contains("flash") ||
+                                lowerId.contains("small")
+
+                        val hasFreeTier = when {
+                            isGroq -> true
+                            isOllama -> true
+                            isOpenAi -> false
+                            isDeepSeek -> false
+                            else -> false
+                        }
+
+                        val freeTierNote = when {
+                            isGroq -> "Free tier available via Groq Developer Console"
+                            isOllama -> "Free self-hosted local model"
+                            isOpenAi -> "Free-tier model unavailable for this provider (Requires paid API credits)"
+                            isDeepSeek -> "Free-tier model unavailable for this provider (Paid pay-as-you-go API)"
+                            else -> "Free-tier model unavailable for this provider"
+                        }
+
+                        val speedCategory = if (isFast) "LIGHTNING" else "FAST"
+
+                        discovered.add(
+                            DiscoveredModel(
+                                modelId = modelId,
+                                displayName = modelId.replace("-", " ").replace("_", " ").split(" ").joinToString(" ") { word ->
+                                    word.replaceFirstChar { char -> if (char.isLowerCase()) char.titlecase() else char.toString() }
+                                },
+                                description = "Discovered model from $baseUrl",
+                                version = "",
+                                freeTier = hasFreeTier,
+                                freeTierNote = freeTierNote,
+                                inputCapabilities = if (isVision) "text,image" else "text",
+                                outputCapabilities = if (isImageGen) "image" else "text",
+                                supportsVision = isVision,
+                                supportsImageGeneration = isImageGen,
+                                supportsAudio = false,
+                                supportsStreaming = !isImageGen,
+                                supportsRealtime = false,
+                                contextWindow = 0,
+                                speedCategory = speedCategory
                             )
                         )
                     }
 
-                    Result.success(
-                        ConnectionTestResult(
-                            success = true,
-                            latencyMs = latency,
-                            message = "Connected successfully. ${modelsList.size} models verified.",
-                            availableModels = modelsList
-                        )
-                    )
+                    if (discovered.isEmpty()) {
+                        return@withContext Result.failure(Exception("No compatible models discovered from $baseUrl."))
+                    }
+
+                    Result.success(discovered)
                 }
             } catch (e: Exception) {
-                Result.failure(Exception("Connection failed to $baseUrl: ${e.localizedMessage ?: e.message}"))
+                Result.failure(Exception("Failed to discover models from $baseUrl: ${e.localizedMessage ?: e.message}"))
             }
         }
 
-    override suspend fun verifyModel(config: ApiConfigEntity): Result<Boolean> =
+    override suspend fun verifyModel(
+        config: ApiConfigEntity,
+        modelId: String,
+        capability: String
+    ): Result<ModelVerificationResult> = withContext(Dispatchers.IO) {
+        val apiKey = config.apiKey.trim()
+        val rawBase = config.baseUrl.trim().ifEmpty { "https://api.openai.com/v1" }
+        val baseUrl = rawBase.trimEnd('/')
+        val cleanModel = modelId.trim()
+
+        if (cleanModel.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("Model ID cannot be empty."))
+        }
+
+        val startTime = System.currentTimeMillis()
+
+        try {
+            val payload = JSONObject()
+            payload.put("model", cleanModel)
+            val messagesArr = JSONArray()
+            messagesArr.put(JSONObject().put("role", "user").put("content", "ping"))
+            payload.put("messages", messagesArr)
+            payload.put("max_tokens", 1)
+
+            val reqBuilder = Request.Builder()
+                .url("$baseUrl/chat/completions")
+                .post(payload.toString().toRequestBody(jsonMediaType))
+
+            if (apiKey.isNotBlank()) {
+                reqBuilder.addHeader("Authorization", "Bearer $apiKey")
+            }
+            if (!config.organizationId.isNullOrBlank()) {
+                reqBuilder.addHeader("OpenAI-Organization", config.organizationId)
+            }
+
+            client.newCall(reqBuilder.build()).execute().use { response ->
+                val latency = System.currentTimeMillis() - startTime
+                val body = response.body?.string().orEmpty()
+
+                if (response.code == 404 || body.contains("model_not_found", ignoreCase = true)) {
+                    return@withContext Result.success(
+                        ModelVerificationResult(
+                            verified = false,
+                            latencyMs = latency,
+                            message = "Model '$cleanModel' was not found (404) on this endpoint.",
+                            statusCode = 404,
+                            is404 = true
+                        )
+                    )
+                }
+
+                if (!response.isSuccessful) {
+                    val errMsg = parseError(body, response.code)
+                    return@withContext Result.success(
+                        ModelVerificationResult(
+                            verified = false,
+                            latencyMs = latency,
+                            message = errMsg,
+                            statusCode = response.code,
+                            is404 = response.code == 404
+                        )
+                    )
+                }
+
+                Result.success(
+                    ModelVerificationResult(
+                        verified = true,
+                        latencyMs = latency,
+                        message = "Model '$cleanModel' verified successfully ($latency ms).",
+                        statusCode = 200,
+                        is404 = false
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception("Verification failed for $cleanModel: ${e.localizedMessage ?: e.message}"))
+        }
+    }
+
+    override suspend fun testConnection(config: ApiConfigEntity): Result<ConnectionTestResult> =
         withContext(Dispatchers.IO) {
-            val test = testConnection(config)
-            test.map { it.success }
+            val startTime = System.currentTimeMillis()
+            val apiKey = config.apiKey.trim()
+            val rawBase = config.baseUrl.trim().ifEmpty { "https://api.openai.com/v1" }
+            val baseUrl = rawBase.trimEnd('/')
+
+            // 1. Discover models
+            val modelsResult = listModels(config)
+            if (modelsResult.isFailure) {
+                val err = modelsResult.exceptionOrNull()
+                return@withContext Result.failure(err ?: Exception("Connection failed to $baseUrl"))
+            }
+
+            val models = modelsResult.getOrNull().orEmpty()
+            val modelNames = models.map { it.modelId }
+            val latency = System.currentTimeMillis() - startTime
+
+            // 2. If a specific model is targeted, verify it
+            val targetModel = config.modelName.trim()
+            if (targetModel.isNotBlank()) {
+                val verifyRes = verifyModel(config, targetModel)
+                if (verifyRes.isSuccess) {
+                    val v = verifyRes.getOrNull()!!
+                    if (!v.verified) {
+                        return@withContext Result.success(
+                            ConnectionTestResult(
+                                success = false,
+                                latencyMs = v.latencyMs,
+                                message = if (v.is404) "Model '$targetModel' not found (404) on endpoint." else v.message,
+                                availableModels = modelNames,
+                                discoveredModelsCount = models.size
+                            )
+                        )
+                    }
+                }
+            }
+
+            Result.success(
+                ConnectionTestResult(
+                    success = true,
+                    latencyMs = latency,
+                    message = "Connected to $baseUrl. ${models.size} models discovered.",
+                    availableModels = modelNames,
+                    discoveredModelsCount = models.size
+                )
+            )
         }
 
     override suspend fun generateChat(
@@ -96,7 +260,11 @@ class OpenAiCompatibleProvider : AiProvider {
         val apiKey = config.apiKey.trim()
         val rawBase = config.baseUrl.trim().ifEmpty { "https://api.openai.com/v1" }
         val baseUrl = rawBase.trimEnd('/')
-        val model = config.modelName.trim().ifEmpty { "gpt-4o-mini" }
+        val model = config.modelName.trim()
+
+        if (model.isBlank()) {
+            return@withContext Result.failure(IllegalArgumentException("No model configured. Please select a model in Central API Hub."))
+        }
 
         try {
             val payload = JSONObject()
@@ -104,21 +272,18 @@ class OpenAiCompatibleProvider : AiProvider {
 
             val messagesArr = JSONArray()
 
-            // System prompt
-            val systemContent = StringBuilder("You are Nova, an intelligent personal AI assistant. Be helpful, concise, thoughtful, and highly capable.")
+            val systemContent = StringBuilder("You are a helpful, intelligent personal AI assistant. Be direct, clear, accurate, and supportive.")
             if (!memoryPrompt.isNullOrBlank()) {
-                systemContent.append("\n\nUser's Long-Term Memory & Preferences:\n").append(memoryPrompt)
+                systemContent.append("\n\nUser's Long-Term Preferences & Memory:\n").append(memoryPrompt)
             }
             messagesArr.put(JSONObject().put("role", "system").put("content", systemContent.toString()))
 
-            // User & Assistant history
             val relevant = messages.takeLast(12)
             for (msg in relevant) {
-                if (msg.role == "error") continue
+                if (msg.role == "error" || msg.role == "system") continue
                 val role = if (msg.role == "assistant") "assistant" else "user"
 
                 if (msg.role == "user" && !msg.mediaUri.isNullOrBlank() && msg.mediaType?.startsWith("image") == true) {
-                    // Vision multimodal message format
                     val contentParts = JSONArray()
                     contentParts.put(JSONObject().put("type", "text").put("text", msg.content))
                     val imgObj = JSONObject().put("url", "data:image/jpeg;base64,${msg.mediaUri.substringAfter("base64,")}")
@@ -145,6 +310,10 @@ class OpenAiCompatibleProvider : AiProvider {
 
             client.newCall(reqBuilder.build()).execute().use { response ->
                 val body = response.body?.string().orEmpty()
+                if (response.code == 404 || body.contains("model_not_found", ignoreCase = true)) {
+                    return@withContext Result.failure(Exception("[404_MODEL_NOT_FOUND] Model '$model' does not exist or is deprecated."))
+                }
+
                 if (!response.isSuccessful) {
                     val errMsg = parseError(body, response.code)
                     return@withContext Result.failure(Exception(errMsg))
@@ -165,7 +334,8 @@ class OpenAiCompatibleProvider : AiProvider {
                 Result.success(
                     ChatResponse(
                         text = text,
-                        spokenText = cleanSpeech
+                        spokenText = cleanSpeech,
+                        modelUsed = model
                     )
                 )
             }
@@ -183,11 +353,12 @@ class OpenAiCompatibleProvider : AiProvider {
         val apiKey = config.apiKey.trim()
         val rawBase = config.baseUrl.trim().ifEmpty { "https://api.openai.com/v1" }
         val baseUrl = rawBase.trimEnd('/')
+        val model = config.modelName.trim().ifBlank { "dall-e-3" }
 
         try {
             val payload = JSONObject()
             payload.put("prompt", prompt)
-            payload.put("model", config.modelName.ifBlank { "dall-e-3" })
+            payload.put("model", model)
             payload.put("n", 1)
             payload.put("size", "1024x1024")
             payload.put("response_format", "b64_json")
@@ -202,6 +373,9 @@ class OpenAiCompatibleProvider : AiProvider {
 
             client.newCall(reqBuilder.build()).execute().use { response ->
                 val body = response.body?.string().orEmpty()
+                if (response.code == 404 || body.contains("model_not_found", ignoreCase = true)) {
+                    return@withContext Result.failure(Exception("[404_MODEL_NOT_FOUND] Image model '$model' was not found (404)."))
+                }
                 if (!response.isSuccessful) {
                     val errMsg = parseError(body, response.code)
                     return@withContext Result.failure(Exception(errMsg))

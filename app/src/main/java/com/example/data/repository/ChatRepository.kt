@@ -26,7 +26,7 @@ class ChatRepository(
     fun getMessages(sessionId: String): Flow<List<ChatMessageEntity>> =
         chatDao.getMessagesForSession(sessionId)
 
-    suspend fun createNewSession(title: String = "New Conversation", modelUsed: String = "gemini-2.5-flash"): String {
+    suspend fun createNewSession(title: String = "New Conversation", modelUsed: String = ""): String {
         val id = UUID.randomUUID().toString()
         val session = ChatSessionEntity(
             id = id,
@@ -40,7 +40,6 @@ class ChatRepository(
     }
 
     suspend fun renameSession(id: String, newTitle: String) {
-        val existing = chatDao.getMessagesList(id)
         val session = ChatSessionEntity(
             id = id,
             title = newTitle,
@@ -102,7 +101,7 @@ class ChatRepository(
         }
 
         // 2. Resolve API configuration
-        val config = if (!specificConfigId.isNullOrBlank()) {
+        var config = if (!specificConfigId.isNullOrBlank()) {
             apiHubRepository.getConfigById(specificConfigId)
         } else {
             apiHubRepository.getActiveChatConfig()
@@ -113,7 +112,7 @@ class ChatRepository(
                 id = UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 role = "error",
-                content = "No active AI provider is configured. Please select or add an API in the API Hub.",
+                content = "No active AI provider is configured. Please select or add an API in Central API Hub.",
                 spokenText = "No active AI provider is configured. Please check your API Hub.",
                 timestamp = System.currentTimeMillis(),
                 isError = true
@@ -127,7 +126,7 @@ class ChatRepository(
                 id = UUID.randomUUID().toString(),
                 sessionId = sessionId,
                 role = "error",
-                content = "API key is missing for ${config.name}. Tap 'Configure API' to enter your API key.",
+                content = "API key is missing for ${config.name}. Tap 'Central API Hub' to enter your API key and discover available models.",
                 spokenText = "API key is missing for ${config.name}. Please enter your key.",
                 timestamp = System.currentTimeMillis(),
                 isError = true
@@ -136,10 +135,18 @@ class ChatRepository(
             return@withContext Result.failure(IllegalStateException("API key is missing."))
         }
 
-        // 3. Check memory context if enabled
+        // 3. If modelName is blank, dynamically discover and select the newest verified model
+        if (config.modelName.isBlank()) {
+            val refreshed = apiHubRepository.refreshAndAutoSelectModel(config, "chat")
+            if (refreshed.isSuccess) {
+                config = refreshed.getOrNull() ?: config
+            }
+        }
+
+        // 4. Check memory context if enabled
         val memoryPrompt = if (memoryEnabled) memoryRepository.getMemoryContext() else null
 
-        // 4. Send request via isolated provider
+        // 5. Send request via isolated provider
         val provider = ProviderRegistry.getProvider(config.providerType)
         val result = provider.generateChat(config, allHistory, memoryPrompt)
 
@@ -168,15 +175,43 @@ class ChatRepository(
                     cardJson = cardJson
                 )
                 chatDao.insertMessage(assistantMessage)
+
+                // Update session with model used
+                val usedModel = response.modelUsed.ifBlank { config.modelName }
+                if (usedModel.isNotBlank()) {
+                    chatDao.updateSession(
+                        ChatSessionEntity(
+                            id = sessionId,
+                            title = autoTitleFromHistory(allHistory),
+                            updatedAt = System.currentTimeMillis(),
+                            modelUsed = usedModel
+                        )
+                    )
+                }
+
                 Result.success(assistantMessage)
             },
             onFailure = { error ->
+                val errText = error.message.orEmpty()
+                val is404 = errText.contains("404") || errText.contains("NOT_FOUND", ignoreCase = true)
+
+                if (is404 && config.modelName.isNotBlank()) {
+                    // Mark this model unavailable in database
+                    apiHubRepository.markModelUnavailable(config.providerType, config.modelName)
+                }
+
+                val displayError = if (is404) {
+                    "Selected model '${config.modelName}' is unavailable (404 / deprecated). Open Central API Hub to refresh models or choose another active model."
+                } else {
+                    "Connection failed: $errText"
+                }
+
                 val errorMsg = ChatMessageEntity(
                     id = UUID.randomUUID().toString(),
                     sessionId = sessionId,
                     role = "error",
-                    content = "Connection failed: ${error.message}",
-                    spokenText = "Connection failed. Please check your API settings.",
+                    content = displayError,
+                    spokenText = if (is404) "Selected model is unavailable. Please check API Hub." else "Connection failed. Please check your API settings.",
                     timestamp = System.currentTimeMillis(),
                     isError = true
                 )
@@ -184,6 +219,13 @@ class ChatRepository(
                 Result.failure(error)
             }
         )
+    }
+
+    private fun autoTitleFromHistory(history: List<ChatMessageEntity>): String {
+        val firstUser = history.firstOrNull { it.role == "user" }
+        return if (firstUser != null) {
+            if (firstUser.content.length > 30) firstUser.content.take(28) + "…" else firstUser.content
+        } else "Conversation"
     }
 
     private fun buildQuizCardJson(prompt: String): String {

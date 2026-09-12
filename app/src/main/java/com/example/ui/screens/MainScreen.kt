@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -39,12 +41,12 @@ import com.example.ui.screens.history.HistoryScreen
 import com.example.ui.screens.settings.SettingsScreen
 import com.example.ui.screens.studio.StudioScreen
 import com.example.ui.screens.voice.LiveVoiceScreen
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiTextMuted
+import com.example.ui.theme.GeminiTextSecondary
 
 @Composable
 fun MainScreen(
@@ -57,14 +59,14 @@ fun MainScreen(
     Box(modifier = modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = DeepCharcoal,
+            containerColor = GeminiBackground,
             bottomBar = {
                 NavigationBar(
-                    containerColor = SurfaceDark,
-                    contentColor = TextSecondary,
+                    containerColor = GeminiSurface,
+                    contentColor = GeminiTextSecondary,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(1.dp, BorderDark)
+                        .border(1.dp, GeminiOutline)
                         .testTag("bottom_nav_bar")
                 ) {
                     NavigationBarItem(
@@ -72,13 +74,13 @@ fun MainScreen(
                         onClick = { viewModel.selectTab(AppTab.CHAT) },
                         icon = {
                             Icon(
-                                imageVector = Icons.Default.ChatBubble,
-                                contentDescription = "Chat",
+                                imageVector = Icons.Default.ChatBubbleOutline,
+                                contentDescription = "Gemini Chat",
                                 modifier = Modifier.size(22.dp)
                             )
                         },
-                        label = { Text("Chat", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.CHAT) FontWeight.Bold else FontWeight.Normal) },
-                        colors = navItemColors(),
+                        label = { Text("Gemini", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.CHAT) FontWeight.Bold else FontWeight.Normal) },
+                        colors = geminiNavItemColors(),
                         modifier = Modifier.testTag("tab_chat")
                     )
 
@@ -87,13 +89,13 @@ fun MainScreen(
                         onClick = { viewModel.selectTab(AppTab.STUDIO) },
                         icon = {
                             Icon(
-                                imageVector = Icons.Default.AutoAwesome,
+                                imageVector = Icons.Default.Image,
                                 contentDescription = "Studio",
                                 modifier = Modifier.size(22.dp)
                             )
                         },
                         label = { Text("Studio", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.STUDIO) FontWeight.Bold else FontWeight.Normal) },
-                        colors = navItemColors(),
+                        colors = geminiNavItemColors(),
                         modifier = Modifier.testTag("tab_studio")
                     )
 
@@ -107,8 +109,8 @@ fun MainScreen(
                                 modifier = Modifier.size(22.dp)
                             )
                         },
-                        label = { Text("History", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.HISTORY) FontWeight.Bold else FontWeight.Normal) },
-                        colors = navItemColors(),
+                        label = { Text("Recent", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.HISTORY) FontWeight.Bold else FontWeight.Normal) },
+                        colors = geminiNavItemColors(),
                         modifier = Modifier.testTag("tab_history")
                     )
 
@@ -117,13 +119,13 @@ fun MainScreen(
                         onClick = { viewModel.selectTab(AppTab.SETTINGS) },
                         icon = {
                             Icon(
-                                imageVector = Icons.Default.Settings,
+                                imageVector = Icons.Default.Tune,
                                 contentDescription = "Settings",
                                 modifier = Modifier.size(22.dp)
                             )
                         },
                         label = { Text("Settings", fontSize = 11.sp, fontWeight = if (currentTab == AppTab.SETTINGS) FontWeight.Bold else FontWeight.Normal) },
-                        colors = navItemColors(),
+                        colors = geminiNavItemColors(),
                         modifier = Modifier.testTag("tab_settings")
                     )
                 }
@@ -139,11 +141,12 @@ fun MainScreen(
                     AppTab.STUDIO -> StudioScreen(viewModel = viewModel)
                     AppTab.HISTORY -> HistoryScreen(viewModel = viewModel)
                     AppTab.SETTINGS -> SettingsScreen(viewModel = viewModel)
+                    else -> ChatScreen(viewModel = viewModel)
                 }
             }
         }
 
-        // Overlaid Fullscreen Live Voice Dialog
+        // Overlaid Fullscreen Google Gemini Live Voice Dialog
         AnimatedVisibility(
             visible = isLiveVoiceActive,
             enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -155,10 +158,10 @@ fun MainScreen(
 }
 
 @Composable
-private fun navItemColors() = NavigationBarItemDefaults.colors(
-    selectedIconColor = ElectricBlue,
-    selectedTextColor = ElectricBlue,
-    unselectedIconColor = TextMuted,
-    unselectedTextColor = TextMuted,
-    indicatorColor = Color.Transparent
+private fun geminiNavItemColors() = NavigationBarItemDefaults.colors(
+    selectedIconColor = GeminiBlue,
+    selectedTextColor = GeminiBlue,
+    unselectedIconColor = GeminiTextMuted,
+    unselectedTextColor = GeminiTextMuted,
+    indicatorColor = GeminiBlue.copy(alpha = 0.15f)
 )

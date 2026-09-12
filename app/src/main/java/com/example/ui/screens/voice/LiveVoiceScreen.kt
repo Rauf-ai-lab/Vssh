@@ -23,7 +23,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GraphicEq
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Stop
@@ -48,15 +50,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.MainViewModel
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.CrimsonRed
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.NovaGradient
-import com.example.ui.theme.SecondarySurface
-import com.example.ui.theme.SoftViolet
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiPink
+import com.example.ui.theme.GeminiPurple
+import com.example.ui.theme.GeminiRed
+import com.example.ui.theme.GeminiSparkleGradient
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiSurfaceElevated
+import com.example.ui.theme.GeminiSurfaceVariant
+import com.example.ui.theme.GeminiTextPrimary
+import com.example.ui.theme.GeminiTextSecondary
 
 @Composable
 fun LiveVoiceScreen(
@@ -80,23 +85,23 @@ fun LiveVoiceScreen(
         }
     }
 
-    // Concentric Waveform Animation
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    // Concentric Waveform Animation for Gemini Live Orb
+    val infiniteTransition = rememberInfiniteTransition(label = "gemini_live_pulse")
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1.0f,
-        targetValue = if (isSpeaking || isListening) 1.25f else 1.05f,
+        targetValue = if (isSpeaking || isListening) 1.28f else 1.06f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1300, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulse_scale"
     )
 
     val waveAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.7f,
+        initialValue = 0.2f,
+        targetValue = 0.65f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = FastOutSlowInEasing),
+            animation = tween(1300, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
         label = "wave_alpha"
@@ -105,7 +110,7 @@ fun LiveVoiceScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepCharcoal)
+            .background(GeminiBackground)
             .testTag("live_voice_fullscreen")
     ) {
         // Top Header with Close
@@ -117,17 +122,17 @@ fun LiveVoiceScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(if (isSpeaking) SoftViolet else ElectricBlue)
+                Icon(
+                    imageVector = Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    tint = GeminiBlue,
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Nova Live Voice",
-                    color = TextPrimary,
-                    fontSize = 15.sp,
+                    text = "Gemini Live",
+                    color = GeminiTextPrimary,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -139,13 +144,13 @@ fun LiveVoiceScreen(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close Live Voice",
-                    tint = TextPrimary,
+                    tint = GeminiTextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
         }
 
-        // Center Animated Waveform / Sphere
+        // Center Animated Waveform / Fluid Orb
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -154,34 +159,34 @@ fun LiveVoiceScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                modifier = Modifier.size(260.dp),
+                modifier = Modifier.size(280.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Outer ring 2
+                // Outer ring 2 (Pink/Purple glow)
                 Box(
                     modifier = Modifier
-                        .size(240.dp)
+                        .size(260.dp)
                         .scale(pulseScale)
                         .clip(CircleShape)
-                        .background(SoftViolet.copy(alpha = waveAlpha * 0.2f))
+                        .background(GeminiPink.copy(alpha = waveAlpha * 0.18f))
                 )
 
-                // Outer ring 1
+                // Outer ring 1 (Blue/Violet glow)
                 Box(
                     modifier = Modifier
-                        .size(190.dp)
-                        .scale(pulseScale * 0.95f)
+                        .size(200.dp)
+                        .scale(pulseScale * 0.94f)
                         .clip(CircleShape)
-                        .background(ElectricBlue.copy(alpha = waveAlpha * 0.35f))
+                        .background(GeminiBlue.copy(alpha = waveAlpha * 0.3f))
                 )
 
-                // Core glowing orb
+                // Core fluid glowing orb
                 Box(
                     modifier = Modifier
-                        .size(130.dp)
+                        .size(140.dp)
                         .clip(CircleShape)
-                        .background(NovaGradient)
-                        .border(2.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                        .background(GeminiSparkleGradient)
+                        .border(2.dp, Color.White.copy(alpha = 0.4f), CircleShape)
                         .clickable {
                             if (isSpeaking) {
                                 viewModel.speechService.stopSpeaking()
@@ -193,12 +198,11 @@ fun LiveVoiceScreen(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = if (isSpeaking) "Speaking" else if (isListening) "Listening" else "Tap to Speak",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+                    Icon(
+                        imageVector = if (isSpeaking) Icons.Default.GraphicEq else Icons.Default.Mic,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(34.dp)
                     )
                 }
             }
@@ -207,22 +211,22 @@ fun LiveVoiceScreen(
 
             // State Badge
             val statusText = when {
-                isSpeaking -> "Nova is speaking"
-                isSending -> "Nova is thinking..."
-                isListening -> "Listening to you..."
+                isSpeaking -> "Gemini is speaking"
+                isSending -> "Gemini is thinking..."
+                isListening -> "Listening..."
                 else -> "Paused · Tap orb or speak"
             }
 
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(SecondarySurface)
-                    .border(1.dp, BorderDark, RoundedCornerShape(20.dp))
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(GeminiSurfaceElevated)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(24.dp))
+                    .padding(horizontal = 18.dp, vertical = 8.dp)
             ) {
                 Text(
                     text = statusText,
-                    color = TextPrimary,
+                    color = GeminiTextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -236,15 +240,16 @@ fun LiveVoiceScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(SecondarySurface.copy(alpha = 0.6f))
-                        .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
-                        .padding(14.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(GeminiSurfaceVariant)
+                        .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
+                        .padding(16.dp)
                 ) {
                     Text(
                         text = "\"$displayedText\"",
-                        color = TextSecondary,
+                        color = GeminiTextPrimary,
                         fontSize = 14.sp,
+                        lineHeight = 20.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -252,60 +257,75 @@ fun LiveVoiceScreen(
             }
         }
 
-        // Bottom Controls
+        // Bottom Controls Pill
         Row(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(bottom = 36.dp, start = 24.dp, end = 24.dp),
+                .padding(horizontal = 32.dp, vertical = 40.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Mute / Unmute Mic
-            Box(
+            IconButton(
+                onClick = {
+                    isMicMuted = !isMicMuted
+                    if (isMicMuted) {
+                        viewModel.speechService.stopListening()
+                    } else {
+                        viewModel.speechService.startListening { text ->
+                            if (text.isNotBlank()) viewModel.sendMessage(text)
+                        }
+                    }
+                },
                 modifier = Modifier
                     .size(54.dp)
                     .clip(CircleShape)
-                    .background(if (isMicMuted) CrimsonRed.copy(alpha = 0.2f) else SecondarySurface)
-                    .border(1.dp, if (isMicMuted) CrimsonRed else BorderDark, CircleShape)
-                    .clickable {
-                        isMicMuted = !isMicMuted
-                        if (isMicMuted) {
-                            viewModel.speechService.stopListening()
-                        } else {
-                            viewModel.speechService.startListening { text ->
-                                if (text.isNotBlank()) viewModel.sendMessage(text)
-                            }
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                    .background(GeminiSurfaceVariant)
+                    .border(1.dp, GeminiOutline, CircleShape)
             ) {
                 Icon(
                     imageVector = if (isMicMuted) Icons.Default.MicOff else Icons.Default.Mic,
-                    contentDescription = "Toggle Mute",
-                    tint = if (isMicMuted) CrimsonRed else TextPrimary,
+                    contentDescription = "Toggle Mic",
+                    tint = if (isMicMuted) GeminiRed else GeminiTextPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
 
-            // Stop / Interrupt Button (Mandatory voice feature)
-            Box(
+            // Stop / Interrupt Button
+            IconButton(
+                onClick = {
+                    viewModel.speechService.stopSpeaking()
+                    viewModel.speechService.stopListening()
+                },
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(54.dp)
                     .clip(CircleShape)
-                    .background(CrimsonRed)
-                    .clickable {
-                        viewModel.speechService.stopSpeaking()
-                        viewModel.speechService.stopListening()
-                    }
-                    .testTag("btn_voice_interrupt"),
-                contentAlignment = Alignment.Center
+                    .background(GeminiSurfaceVariant)
+                    .border(1.dp, GeminiOutline, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.Stop,
-                    contentDescription = "Stop Speech",
-                    tint = Color.White,
-                    modifier = Modifier.size(30.dp)
+                    contentDescription = "Interrupt Gemini",
+                    tint = GeminiRed,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            // Exit Live Mode
+            IconButton(
+                onClick = { viewModel.setLiveVoiceActive(false) },
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(GeminiSurfaceElevated)
+                    .border(1.dp, GeminiOutline, CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Exit Gemini Live",
+                    tint = GeminiTextPrimary,
+                    modifier = Modifier.size(24.dp)
                 )
             }
         }

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.GraphicEq
@@ -60,19 +61,19 @@ import com.example.ui.AppTab
 import com.example.ui.MainViewModel
 import com.example.ui.components.StatusBadge
 import com.example.ui.screens.apihub.ApiHubScreen
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.CrimsonRed
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.EmeraldGreen
-import com.example.ui.theme.NovaGradient
-import com.example.ui.theme.SecondarySurface
-import com.example.ui.theme.SoftViolet
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.SurfaceVariantDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiGreen
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiPurple
+import com.example.ui.theme.GeminiRed
+import com.example.ui.theme.GeminiSparkleGradient
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiSurfaceElevated
+import com.example.ui.theme.GeminiSurfaceVariant
+import com.example.ui.theme.GeminiTextMuted
+import com.example.ui.theme.GeminiTextPrimary
+import com.example.ui.theme.GeminiTextSecondary
 
 @Composable
 fun SettingsScreen(
@@ -98,12 +99,12 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SurfaceDark)
+                    .background(GeminiSurface)
                     .padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 TextButton(onClick = { showApiHubSubscreen = false }) {
-                    Text("← Back to Settings", color = ElectricBlue)
+                    Text("← Back to Settings", color = GeminiBlue)
                 }
             }
             ApiHubScreen(viewModel = viewModel)
@@ -114,7 +115,7 @@ fun SettingsScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepCharcoal)
+            .background(GeminiBackground)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -123,17 +124,17 @@ fun SettingsScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
+                        .size(32.dp)
                         .clip(CircleShape)
-                        .background(NovaGradient),
+                        .background(GeminiSparkleGradient),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Default.Tune, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
                 }
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
-                    Text("Settings & Diagnostics", color = TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("Preferences, API connection, and memory", color = TextSecondary, fontSize = 11.sp)
+                    Text("Settings & System", color = GeminiTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Central API Hub, dynamic models, and memory", color = GeminiTextSecondary, fontSize = 11.sp)
                 }
             }
         }
@@ -143,9 +144,9 @@ fun SettingsScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, ElectricBlue.copy(alpha = 0.4f), RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiBlue.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
                     .clickable { showApiHubSubscreen = true }
                     .padding(16.dp)
                     .testTag("nav_to_api_hub"),
@@ -155,24 +156,24 @@ fun SettingsScreen(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(ElectricBlue.copy(alpha = 0.2f)),
+                            .background(GeminiBlue.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Hub, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Hub, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(20.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text("Central API Hub", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("Central API Hub", color = GeminiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Text(
-                            text = "Active: ${activeConfig?.name ?: "None"} (${activeConfig?.modelName ?: "No model"})",
-                            color = TextSecondary,
+                            text = "Active: ${activeConfig?.name ?: "None"} (${activeConfig?.modelName?.ifBlank { "Auto-discovering" } ?: "No model"})",
+                            color = GeminiTextSecondary,
                             fontSize = 12.sp
                         )
                     }
                 }
-                Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = GeminiTextMuted, modifier = Modifier.size(16.dp))
             }
         }
 
@@ -181,9 +182,9 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                     .padding(16.dp)
                     .testTag("diagnostics_card")
             ) {
@@ -193,9 +194,9 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Info, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Live Diagnostics", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("Live Diagnostics", color = GeminiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
                     activeConfig?.let {
@@ -206,7 +207,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 DiagnosticRow("Active Provider", activeConfig?.name ?: "None configured")
-                DiagnosticRow("Active Model", activeConfig?.modelName ?: "None")
+                DiagnosticRow("Active Model", activeConfig?.modelName?.ifBlank { "Auto-discovering..." } ?: "None")
                 DiagnosticRow("Endpoint URL", activeConfig?.baseUrl ?: "None")
                 DiagnosticRow("Masked Key", activeConfig?.maskedApiKey ?: "Not set")
                 DiagnosticRow("Capabilities", activeConfig?.supportedCapabilities ?: "chat")
@@ -223,9 +224,9 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     if (testingId != null) {
-                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = ElectricBlue)
+                        CircularProgressIndicator(modifier = Modifier.size(14.dp), strokeWidth = 2.dp, color = GeminiBlue)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Verifying endpoint...", fontSize = 12.sp)
+                        Text("Verifying live endpoint...", fontSize = 12.sp)
                     } else {
                         Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -239,12 +240,12 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (res.success) EmeraldGreen.copy(alpha = 0.15f) else CrimsonRed.copy(alpha = 0.15f))
+                            .background(if (res.success) GeminiGreen.copy(alpha = 0.15f) else GeminiRed.copy(alpha = 0.15f))
                             .padding(10.dp)
                     ) {
                         Text(
                             text = res.message,
-                            color = if (res.success) EmeraldGreen else CrimsonRed,
+                            color = if (res.success) GeminiGreen else GeminiRed,
                             fontSize = 11.sp
                         )
                     }
@@ -257,9 +258,9 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
                 Row(
@@ -268,9 +269,9 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.GraphicEq, contentDescription = null, tint = SoftViolet, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.GraphicEq, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Speech Cleaning Pipeline", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("Speech Cleaning Pipeline", color = GeminiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Switch(
@@ -278,15 +279,17 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.toggleSpeechCleaner(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = SoftViolet
+                            checkedTrackColor = GeminiBlue,
+                            uncheckedThumbColor = GeminiTextMuted,
+                            uncheckedTrackColor = GeminiSurfaceVariant
                         )
                     )
                 }
 
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Intelligently filters out emojis, markdown symbols (#, **), code snippets, URLs, JSON, and citations before voice playback for a smooth human reading voice.",
-                    color = TextSecondary,
+                    text = "Intelligently cleans emojis, markdown headers, URLs, code blocks, and citations prior to Text-to-Speech synthesis for natural acoustic reading.",
+                    color = GeminiTextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 17.sp
                 )
@@ -298,9 +301,9 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
                 Row(
@@ -309,9 +312,9 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Psychology, contentDescription = null, tint = ElectricBlue, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Psychology, contentDescription = null, tint = GeminiPurple, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Personal Assistant Memory", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("Gemini Assistant Memory", color = GeminiTextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Switch(
@@ -319,15 +322,17 @@ fun SettingsScreen(
                         onCheckedChange = { viewModel.toggleMemory(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = ElectricBlue
+                            checkedTrackColor = GeminiPurple,
+                            uncheckedThumbColor = GeminiTextMuted,
+                            uncheckedTrackColor = GeminiSurfaceVariant
                         )
                     )
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "When active, Nova remembers key details and preferences across chats to personalize answers.",
-                    color = TextSecondary,
+                    text = "When active, Gemini remembers key facts and preferences across conversations to personalize responses.",
+                    color = GeminiTextSecondary,
                     fontSize = 12.sp
                 )
 
@@ -340,14 +345,14 @@ fun SettingsScreen(
                             .fillMaxWidth()
                             .padding(vertical = 3.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(SurfaceVariantDark)
+                            .background(GeminiSurfaceVariant)
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
                             text = "[${mem.category}] ${mem.fact}",
-                            color = TextPrimary,
+                            color = GeminiTextPrimary,
                             fontSize = 12.sp,
                             modifier = Modifier.weight(1f)
                         )
@@ -355,7 +360,7 @@ fun SettingsScreen(
                             onClick = { viewModel.deleteMemory(mem.id) },
                             modifier = Modifier.size(24.dp)
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = "Delete Memory", tint = CrimsonRed, modifier = Modifier.size(14.dp))
+                            Icon(Icons.Default.Delete, contentDescription = "Delete Memory", tint = GeminiRed, modifier = Modifier.size(14.dp))
                         }
                     }
                 }
@@ -377,7 +382,7 @@ fun SettingsScreen(
 
                     if (memories.isNotEmpty()) {
                         TextButton(onClick = { viewModel.clearAllMemories() }) {
-                            Text("Clear All", color = CrimsonRed, fontSize = 11.sp)
+                            Text("Clear All", color = GeminiRed, fontSize = 11.sp)
                         }
                     }
                 }
@@ -389,17 +394,21 @@ fun SettingsScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(SurfaceDark)
-                    .border(1.dp, BorderDark, RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(GeminiSurface)
+                    .border(1.dp, GeminiOutline, RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
-                Text("About Nova AI", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GeminiBlue, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("About Gemini AI", color = GeminiTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
                 Spacer(modifier = Modifier.height(8.dp))
-                DiagnosticRow("Assistant", "Nova")
-                DiagnosticRow("Tagline", "Your intelligent companion for every task.")
-                DiagnosticRow("Version", "1.0.0 (Production)")
-                DiagnosticRow("Developer", "Rauf")
+                DiagnosticRow("Assistant", "Gemini Assistant")
+                DiagnosticRow("Engine", "Dynamic Model Discovery")
+                DiagnosticRow("Edition", "Production Native Android")
+                DiagnosticRow("Platform", "Google AI Studio")
             }
         }
 
@@ -410,17 +419,17 @@ fun SettingsScreen(
     if (showAddMemoryDialog) {
         AlertDialog(
             onDismissRequest = { showAddMemoryDialog = false },
-            title = { Text("Add Memory Fact", color = TextPrimary, fontSize = 16.sp) },
+            title = { Text("Add Memory Fact", color = GeminiTextPrimary, fontSize = 16.sp) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = newMemoryFact,
                         onValueChange = { newMemoryFact = it },
-                        placeholder = { Text("e.g., Prefers Kotlin over Java", color = TextMuted) },
+                        placeholder = { Text("e.g., Prefers Kotlin over Java", color = GeminiTextMuted) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary,
-                            focusedBorderColor = ElectricBlue
+                            focusedTextColor = GeminiTextPrimary,
+                            unfocusedTextColor = GeminiTextPrimary,
+                            focusedBorderColor = GeminiBlue
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -436,15 +445,15 @@ fun SettingsScreen(
                         showAddMemoryDialog = false
                     }
                 ) {
-                    Text("Save Fact", color = ElectricBlue)
+                    Text("Save Fact", color = GeminiBlue)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showAddMemoryDialog = false }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = GeminiTextSecondary)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = GeminiSurface
         )
     }
 }
@@ -457,7 +466,7 @@ private fun DiagnosticRow(label: String, value: String) {
             .padding(vertical = 3.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(label, color = TextSecondary, fontSize = 12.sp)
-        Text(value, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(label, color = GeminiTextSecondary, fontSize = 12.sp)
+        Text(value, color = GeminiTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }

@@ -10,15 +10,17 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.local.entity.ApiConfigEntity
 import com.example.data.local.entity.ChatMessageEntity
 import com.example.data.local.entity.ChatSessionEntity
+import com.example.data.local.entity.DiscoveredModelEntity
 import com.example.data.local.entity.MemoryEntity
+import com.example.service.NetworkMonitor
+import com.example.service.SpeechService
 import com.example.data.network.providers.ConnectionTestResult
 import com.example.data.network.providers.ImageResult
+import com.example.data.network.providers.ModelVerificationResult
 import com.example.data.network.providers.ProviderRegistry
 import com.example.data.repository.ApiHubRepository
 import com.example.data.repository.ChatRepository
 import com.example.data.repository.MemoryRepository
-import com.example.service.NetworkMonitor
-import com.example.service.SpeechService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -32,13 +34,15 @@ enum class AppTab {
     CHAT,
     STUDIO,
     HISTORY,
-    SETTINGS
+    SETTINGS,
+    API_HUB,
+    LIVE_VOICE
 }
 
 data class StudioImageState(
     val prompt: String = "",
     val aspectRatio: String = "1:1",
-    val style: String = "Realistic",
+    val style: String = "Photorealistic",
     val isGenerating: Boolean = false,
     val result: ImageResult? = null,
     val error: String? = null
@@ -67,6 +71,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val memories: StateFlow<List<MemoryEntity>> = memoryRepository.allMemories
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val allDiscoveredModels: StateFlow<List<DiscoveredModelEntity>> = apiHubRepository.modelRegistry.getAllModels()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _currentTab = MutableStateFlow(AppTab.CHAT)
     val currentTab: StateFlow<AppTab> = _currentTab.asStateFlow()
 
@@ -91,6 +98,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isMemoryEnabled = MutableStateFlow(true)
     val isMemoryEnabled: StateFlow<Boolean> = _isMemoryEnabled.asStateFlow()
 
+    private val _isDiscoveringModels = MutableStateFlow(false)
+    val isDiscoveringModels: StateFlow<Boolean> = _isDiscoveringModels.asStateFlow()
+
     // Studio Image Generation State
     private val _studioImageState = MutableStateFlow(StudioImageState())
     val studioImageState: StateFlow<StudioImageState> = _studioImageState.asStateFlow()
@@ -102,6 +112,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _testResult = MutableStateFlow<ConnectionTestResult?>(null)
     val testResult: StateFlow<ConnectionTestResult?> = _testResult.asStateFlow()
 
+    private val _modelVerificationResult = MutableStateFlow<ModelVerificationResult?>(null)
+    val modelVerificationResult: StateFlow<ModelVerificationResult?> = _modelVerificationResult.asStateFlow()
+
     // Attachment State
     private val _attachedImageBase64 = MutableStateFlow<String?>(null)
     val attachedImageBase64: StateFlow<String?> = _attachedImageBase64.asStateFlow()
@@ -112,11 +125,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             apiHubRepository.initializeDefaultsIfNeeded()
-            // Pick initial default config
             val defaultCfg = apiHubRepository.getActiveChatConfig()
             _selectedModelConfig.value = defaultCfg
 
-            // Initialize or load latest session
+            // Load latest session or create clean new chat
             val existingSessions = chatRepository.sessions.firstOrNull()
             if (!existingSessions.isNullOrEmpty()) {
                 selectSession(existingSessions.first().id)
@@ -141,7 +153,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createNewChat() {
         viewModelScope.launch {
-            val modelName = _selectedModelConfig.value?.modelName ?: "gemini-2.5-flash"
+            val modelName = _selectedModelConfig.value?.modelName.orEmpty()
             val newId = chatRepository.createNewSession("New Conversation", modelName)
             selectSession(newId)
             _currentTab.value = AppTab.CHAT
@@ -178,6 +190,45 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _selectedModelConfig.value = config
         viewModelScope.launch {
             apiHubRepository.setDefault(config.id)
+            // If model is blank, dynamically discover and select
+            if (config.modelName.isBlank() && config.apiKey.isNotBlank()) {
+                refreshModelsForConfig(config)
+            }
+        }
+    }
+
+    fun selectModelForActiveConfig(modelId: String) {
+        val current = _selectedModelConfig.value ?: return
+        viewModelScope.launch {
+            val updated = current.copy(
+                modelName = modelId,
+                status = "CONNECTED"
+            )
+            apiHubRepository.saveConfig(updated, performTestFirst = false)
+            _selectedModelConfig.value = updated
+
+            // Verify the newly chosen model in background
+            apiHubRepository.modelRegistry.verifySingleModel(updated, modelId, "chat")
+        }
+    }
+
+    fun refreshModelsForConfig(config: ApiConfigEntity) {
+        _isDiscoveringModels.value = true
+        viewModelScope.launch {
+            val res = apiHubRepository.refreshAndAutoSelectModel(config, capability = if (config.category.contains("Image")) "image_gen" else "chat")
+            res.onSuccess { updated ->
+                if (_selectedModelConfig.value?.id == config.id) {
+                    _selectedModelConfig.value = updated
+                }
+            }
+            _isDiscoveringModels.value = false
+        }
+    }
+
+    fun verifySpecificModel(config: ApiConfigEntity, modelId: String) {
+        viewModelScope.launch {
+            val res = apiHubRepository.modelRegistry.verifySingleModel(config, modelId, capability = "chat")
+            _modelVerificationResult.value = res.getOrNull()
         }
     }
 
@@ -190,7 +241,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 inputStream?.close()
 
                 if (bitmap != null) {
-                    // Resize to max 1024 to keep payload lightweight and fast
                     val scaled = if (bitmap.width > 1024 || bitmap.height > 1024) {
                         val ratio = bitmap.width.toFloat() / bitmap.height.toFloat()
                         if (ratio > 1) {
@@ -310,7 +360,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (imgConfig == null || imgConfig.apiKey.isBlank()) {
                 _studioImageState.value = _studioImageState.value.copy(
                     isGenerating = false,
-                    error = "Image Generation API is not configured. Please configure an API key in API Hub."
+                    error = "Image Generation API is not configured. Please configure an API key in Central API Hub."
                 )
                 return@launch
             }
@@ -345,7 +395,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             res.fold(
                 onSuccess = { testRes ->
                     _testResult.value = testRes
-                    // Update entity status in Room
                     apiHubRepository.saveConfig(
                         config.copy(
                             status = if (testRes.success) "CONNECTED" else "MODEL_UNAVAILABLE",
@@ -378,9 +427,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun saveConfig(config: ApiConfigEntity, performTest: Boolean = true) {
         viewModelScope.launch {
-            apiHubRepository.saveConfig(config, performTest)
+            val res = apiHubRepository.saveConfig(config, performTest)
             if (config.isDefault) {
-                _selectedModelConfig.value = config
+                _selectedModelConfig.value = res.getOrNull() ?: config
             }
         }
     }

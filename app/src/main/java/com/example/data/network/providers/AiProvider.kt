@@ -7,14 +7,42 @@ data class ConnectionTestResult(
     val success: Boolean,
     val latencyMs: Long,
     val message: String,
-    val availableModels: List<String> = emptyList()
+    val availableModels: List<String> = emptyList(),
+    val discoveredModelsCount: Int = 0
+)
+
+data class ModelVerificationResult(
+    val verified: Boolean,
+    val latencyMs: Long,
+    val message: String,
+    val statusCode: Int = 200,
+    val is404: Boolean = false
+)
+
+data class DiscoveredModel(
+    val modelId: String,
+    val displayName: String,
+    val description: String = "",
+    val version: String = "",
+    val freeTier: Boolean = false,
+    val freeTierNote: String = "",
+    val inputCapabilities: String = "text",
+    val outputCapabilities: String = "text",
+    val supportsVision: Boolean = false,
+    val supportsImageGeneration: Boolean = false,
+    val supportsAudio: Boolean = false,
+    val supportsStreaming: Boolean = true,
+    val supportsRealtime: Boolean = false,
+    val contextWindow: Int = 0,
+    val speedCategory: String = "FAST" // "LIGHTNING", "FAST", "STANDARD", "REASONING"
 )
 
 data class ChatResponse(
     val text: String,
     val spokenText: String,
     val cardType: String? = null,
-    val cardJson: String? = null
+    val cardJson: String? = null,
+    val modelUsed: String = ""
 )
 
 data class ImageResult(
@@ -24,8 +52,9 @@ data class ImageResult(
 )
 
 interface AiProvider {
+    suspend fun listModels(config: ApiConfigEntity): Result<List<DiscoveredModel>>
+    suspend fun verifyModel(config: ApiConfigEntity, modelId: String, capability: String = "chat"): Result<ModelVerificationResult>
     suspend fun testConnection(config: ApiConfigEntity): Result<ConnectionTestResult>
-    suspend fun verifyModel(config: ApiConfigEntity): Result<Boolean>
     suspend fun generateChat(
         config: ApiConfigEntity,
         messages: List<ChatMessageEntity>,
@@ -39,3 +68,4 @@ interface AiProvider {
         size: String
     ): Result<ImageResult>
 }
+

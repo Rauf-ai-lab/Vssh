@@ -51,17 +51,18 @@ import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.ChatSessionEntity
 import com.example.ui.AppTab
 import com.example.ui.MainViewModel
-import com.example.ui.theme.BorderDark
-import com.example.ui.theme.CrimsonRed
-import com.example.ui.theme.DeepCharcoal
-import com.example.ui.theme.ElectricBlue
-import com.example.ui.theme.SecondarySurface
-import com.example.ui.theme.SoftViolet
-import com.example.ui.theme.SurfaceDark
-import com.example.ui.theme.SurfaceVariantDark
-import com.example.ui.theme.TextMuted
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.GeminiBackground
+import com.example.ui.theme.GeminiBlue
+import com.example.ui.theme.GeminiOutline
+import com.example.ui.theme.GeminiPurple
+import com.example.ui.theme.GeminiRed
+import com.example.ui.theme.GeminiSparkleGradient
+import com.example.ui.theme.GeminiSurface
+import com.example.ui.theme.GeminiSurfaceElevated
+import com.example.ui.theme.GeminiSurfaceVariant
+import com.example.ui.theme.GeminiTextMuted
+import com.example.ui.theme.GeminiTextPrimary
+import com.example.ui.theme.GeminiTextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -91,7 +92,7 @@ fun HistoryScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DeepCharcoal)
+            .background(GeminiBackground)
             .testTag("history_screen")
     ) {
         // Top Header
@@ -104,25 +105,28 @@ fun HistoryScreen(
         ) {
             Column {
                 Text(
-                    text = "Chat History",
-                    color = TextPrimary,
+                    text = "Recent Chats",
+                    color = GeminiTextPrimary,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = "${sessions.size} saved conversations",
-                    color = TextSecondary,
+                    color = GeminiTextSecondary,
                     fontSize = 12.sp
                 )
             }
 
             ElevatedButton(
-                onClick = { viewModel.createNewChat() },
+                onClick = {
+                    viewModel.createNewChat()
+                    viewModel.selectTab(AppTab.CHAT)
+                },
                 colors = ButtonDefaults.elevatedButtonColors(
-                    containerColor = ElectricBlue,
-                    contentColor = Color.White
+                    containerColor = GeminiBlue,
+                    contentColor = Color(0xFF041E49)
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(14.dp))
                 Spacer(modifier = Modifier.width(4.dp))
@@ -134,19 +138,19 @@ fun HistoryScreen(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Search conversations...", color = TextMuted, fontSize = 13.sp) },
+            placeholder = { Text("Search conversations...", color = GeminiTextMuted, fontSize = 13.sp) },
             leadingIcon = {
-                Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Search, contentDescription = null, tint = GeminiTextSecondary, modifier = Modifier.size(18.dp))
             },
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = SurfaceDark,
-                unfocusedContainerColor = SurfaceDark,
-                focusedBorderColor = ElectricBlue,
-                unfocusedBorderColor = BorderDark,
-                focusedTextColor = TextPrimary,
-                unfocusedTextColor = TextPrimary
+                focusedContainerColor = GeminiSurface,
+                unfocusedContainerColor = GeminiSurface,
+                focusedBorderColor = GeminiBlue,
+                unfocusedBorderColor = GeminiOutline,
+                focusedTextColor = GeminiTextPrimary,
+                unfocusedTextColor = GeminiTextPrimary
             ),
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
@@ -164,23 +168,23 @@ fun HistoryScreen(
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .background(if (!filterPinnedOnly) ElectricBlue.copy(alpha = 0.2f) else SurfaceDark)
-                    .border(1.dp, if (!filterPinnedOnly) ElectricBlue else BorderDark, RoundedCornerShape(16.dp))
+                    .background(if (!filterPinnedOnly) GeminiBlue.copy(alpha = 0.2f) else GeminiSurface)
+                    .border(1.dp, if (!filterPinnedOnly) GeminiBlue else GeminiOutline, RoundedCornerShape(16.dp))
                     .clickable { filterPinnedOnly = false }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("All Chats", color = if (!filterPinnedOnly) ElectricBlue else TextSecondary, fontSize = 12.sp)
+                Text("All Chats", color = if (!filterPinnedOnly) GeminiBlue else GeminiTextSecondary, fontSize = 12.sp)
             }
 
             Box(
                 modifier = Modifier
                     .clip(RoundedCornerShape(16.dp))
-                    .background(if (filterPinnedOnly) SoftViolet.copy(alpha = 0.25f) else SurfaceDark)
-                    .border(1.dp, if (filterPinnedOnly) SoftViolet else BorderDark, RoundedCornerShape(16.dp))
+                    .background(if (filterPinnedOnly) GeminiPurple.copy(alpha = 0.25f) else GeminiSurface)
+                    .border(1.dp, if (filterPinnedOnly) GeminiPurple else GeminiOutline, RoundedCornerShape(16.dp))
                     .clickable { filterPinnedOnly = true }
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                Text("Pinned", color = if (filterPinnedOnly) SoftViolet else TextSecondary, fontSize = 12.sp)
+                Text("Pinned", color = if (filterPinnedOnly) GeminiPurple else GeminiTextSecondary, fontSize = 12.sp)
             }
         }
 
@@ -196,7 +200,7 @@ fun HistoryScreen(
             ) {
                 Text(
                     text = if (searchQuery.isNotBlank()) "No conversations match your search." else "No conversations yet. Start a new chat!",
-                    color = TextSecondary,
+                    color = GeminiTextSecondary,
                     fontSize = 13.sp
                 )
             }
@@ -213,12 +217,12 @@ fun HistoryScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isCurrent) SurfaceVariantDark else SurfaceDark)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (isCurrent) GeminiSurfaceElevated else GeminiSurface)
                             .border(
                                 1.dp,
-                                if (isCurrent) ElectricBlue.copy(alpha = 0.4f) else BorderDark,
-                                RoundedCornerShape(12.dp)
+                                if (isCurrent) GeminiBlue.copy(alpha = 0.5f) else GeminiOutline,
+                                RoundedCornerShape(14.dp)
                             )
                             .clickable {
                                 viewModel.selectSession(session.id)
@@ -231,13 +235,13 @@ fun HistoryScreen(
                             modifier = Modifier
                                 .size(34.dp)
                                 .clip(CircleShape)
-                                .background(if (session.isPinned) SoftViolet.copy(alpha = 0.2f) else SecondarySurface),
+                                .background(if (session.isPinned) GeminiPurple.copy(alpha = 0.2f) else GeminiSurfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = if (session.isPinned) Icons.Default.PushPin else Icons.Default.ChatBubbleOutline,
                                 contentDescription = null,
-                                tint = if (session.isPinned) SoftViolet else TextSecondary,
+                                tint = if (session.isPinned) GeminiPurple else GeminiTextSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -247,7 +251,7 @@ fun HistoryScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = session.title,
-                                color = TextPrimary,
+                                color = GeminiTextPrimary,
                                 fontSize = 14.sp,
                                 fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
                                 maxLines = 1
@@ -256,18 +260,20 @@ fun HistoryScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(session.updatedAt)),
-                                    color = TextMuted,
+                                    color = GeminiTextMuted,
                                     fontSize = 11.sp
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("•", color = TextMuted, fontSize = 11.sp)
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = session.modelUsed,
-                                    color = ElectricBlue,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
+                                if (session.modelUsed.isNotBlank()) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("•", color = GeminiTextMuted, fontSize = 11.sp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = session.modelUsed,
+                                        color = GeminiBlue,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
                         }
 
@@ -279,7 +285,7 @@ fun HistoryScreen(
                             Icon(
                                 imageVector = Icons.Default.PushPin,
                                 contentDescription = "Pin session",
-                                tint = if (session.isPinned) SoftViolet else TextMuted,
+                                tint = if (session.isPinned) GeminiPurple else GeminiTextMuted,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
@@ -294,7 +300,7 @@ fun HistoryScreen(
                             Icon(
                                 imageVector = Icons.Default.Edit,
                                 contentDescription = "Rename",
-                                tint = TextSecondary,
+                                tint = GeminiTextSecondary,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -306,7 +312,7 @@ fun HistoryScreen(
                             Icon(
                                 imageVector = Icons.Default.Delete,
                                 contentDescription = "Delete",
-                                tint = CrimsonRed,
+                                tint = GeminiRed,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -322,15 +328,15 @@ fun HistoryScreen(
     renamingSession?.let { session ->
         AlertDialog(
             onDismissRequest = { renamingSession = null },
-            title = { Text("Rename Conversation", color = TextPrimary, fontSize = 16.sp) },
+            title = { Text("Rename Conversation", color = GeminiTextPrimary, fontSize = 16.sp) },
             text = {
                 OutlinedTextField(
                     value = newTitleText,
                     onValueChange = { newTitleText = it },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = TextPrimary,
-                        unfocusedTextColor = TextPrimary,
-                        focusedBorderColor = ElectricBlue
+                        focusedTextColor = GeminiTextPrimary,
+                        unfocusedTextColor = GeminiTextPrimary,
+                        focusedBorderColor = GeminiBlue
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -344,15 +350,15 @@ fun HistoryScreen(
                         renamingSession = null
                     }
                 ) {
-                    Text("Save", color = ElectricBlue)
+                    Text("Save", color = GeminiBlue)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { renamingSession = null }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = GeminiTextSecondary)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = GeminiSurface
         )
     }
 
@@ -360,8 +366,8 @@ fun HistoryScreen(
     sessionToDelete?.let { sId ->
         AlertDialog(
             onDismissRequest = { sessionToDelete = null },
-            title = { Text("Delete Conversation?", color = TextPrimary, fontSize = 16.sp) },
-            text = { Text("This will permanently remove this chat and its messages.", color = TextSecondary, fontSize = 13.sp) },
+            title = { Text("Delete Conversation?", color = GeminiTextPrimary, fontSize = 16.sp) },
+            text = { Text("This will permanently remove this chat and its messages.", color = GeminiTextSecondary, fontSize = 13.sp) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -369,15 +375,15 @@ fun HistoryScreen(
                         sessionToDelete = null
                     }
                 ) {
-                    Text("Delete", color = CrimsonRed, fontWeight = FontWeight.Bold)
+                    Text("Delete", color = GeminiRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { sessionToDelete = null }) {
-                    Text("Cancel", color = TextSecondary)
+                    Text("Cancel", color = GeminiTextSecondary)
                 }
             },
-            containerColor = SurfaceDark
+            containerColor = GeminiSurface
         )
     }
 }

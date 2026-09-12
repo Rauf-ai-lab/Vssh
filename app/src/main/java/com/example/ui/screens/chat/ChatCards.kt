@@ -386,6 +386,7 @@ fun ErrorActionCard(
     errorMessage: String,
     onConfigureApi: () -> Unit,
     onTestConnection: () -> Unit,
+    onRefreshModels: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -406,7 +407,7 @@ fun ErrorActionCard(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Connection / Model Issue",
+                text = "Model Availability / Connection Alert",
                 color = CrimsonRed,
                 fontWeight = FontWeight.Bold,
                 fontSize = 13.sp
@@ -426,6 +427,26 @@ fun ErrorActionCard(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (onRefreshModels != null) {
+                ElevatedButton(
+                    onClick = onRefreshModels,
+                    colors = ButtonDefaults.elevatedButtonColors(
+                        containerColor = ElectricBlue,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("btn_error_refresh_models")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Auto-Discover Models", fontSize = 12.sp)
+                }
+            }
+
             ElevatedButton(
                 onClick = onConfigureApi,
                 colors = ButtonDefaults.elevatedButtonColors(
