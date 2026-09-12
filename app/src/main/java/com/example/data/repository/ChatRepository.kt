@@ -1,0 +1,217 @@
+package com.example.data.repository
+
+import android.content.Context
+import com.example.data.local.AppDatabase
+import com.example.data.local.entity.ChatMessageEntity
+import com.example.data.local.entity.ChatSessionEntity
+import com.example.data.network.SpeechCleaner
+import com.example.data.network.providers.ProviderRegistry
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
+import java.util.UUID
+
+class ChatRepository(
+    private val context: Context,
+    private val apiHubRepository: ApiHubRepository,
+    private val memoryRepository: MemoryRepository
+) {
+    private val db = AppDatabase.getDatabase(context)
+    private val chatDao = db.chatDao()
+
+    val sessions: Flow<List<ChatSessionEntity>> = chatDao.getAllSessions()
+
+    fun getSession(id: String): Flow<ChatSessionEntity?> = chatDao.getSessionById(id)
+
+    fun getMessages(sessionId: String): Flow<List<ChatMessageEntity>> =
+        chatDao.getMessagesForSession(sessionId)
+
+    suspend fun createNewSession(title: String = "New Conversation", modelUsed: String = "gemini-2.5-flash"): String {
+        val id = UUID.randomUUID().toString()
+        val session = ChatSessionEntity(
+            id = id,
+            title = title,
+            createdAt = System.currentTimeMillis(),
+            updatedAt = System.currentTimeMillis(),
+            modelUsed = modelUsed
+        )
+        chatDao.insertSession(session)
+        return id
+    }
+
+    suspend fun renameSession(id: String, newTitle: String) {
+        val existing = chatDao.getMessagesList(id)
+        val session = ChatSessionEntity(
+            id = id,
+            title = newTitle,
+            updatedAt = System.currentTimeMillis()
+        )
+        chatDao.updateSession(session)
+    }
+
+    suspend fun togglePinSession(id: String, isPinned: Boolean) {
+        val session = ChatSessionEntity(
+            id = id,
+            title = "Conversation",
+            updatedAt = System.currentTimeMillis(),
+            isPinned = isPinned
+        )
+        chatDao.updateSession(session)
+    }
+
+    suspend fun deleteSession(id: String) {
+        chatDao.deleteSession(id)
+    }
+
+    suspend fun clearAll() {
+        chatDao.clearAllSessions()
+    }
+
+    suspend fun sendMessage(
+        sessionId: String,
+        userText: String,
+        mediaUri: String? = null,
+        mediaType: String? = null,
+        specificConfigId: String? = null,
+        memoryEnabled: Boolean = true
+    ): Result<ChatMessageEntity> = withContext(Dispatchers.IO) {
+        // 1. Save user message to database
+        val userMsgId = UUID.randomUUID().toString()
+        val userMessage = ChatMessageEntity(
+            id = userMsgId,
+            sessionId = sessionId,
+            role = "user",
+            content = userText,
+            mediaUri = mediaUri,
+            mediaType = mediaType,
+            timestamp = System.currentTimeMillis()
+        )
+        chatDao.insertMessage(userMessage)
+
+        // Update session's timestamp and title if it's the first message
+        val allHistory = chatDao.getMessagesList(sessionId)
+        if (allHistory.size <= 2) {
+            val autoTitle = if (userText.length > 30) userText.take(28) + "…" else userText
+            chatDao.updateSession(
+                ChatSessionEntity(
+                    id = sessionId,
+                    title = autoTitle,
+                    updatedAt = System.currentTimeMillis()
+                )
+            )
+        }
+
+        // 2. Resolve API configuration
+        val config = if (!specificConfigId.isNullOrBlank()) {
+            apiHubRepository.getConfigById(specificConfigId)
+        } else {
+            apiHubRepository.getActiveChatConfig()
+        }
+
+        if (config == null || !config.isEnabled) {
+            val errorMsg = ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                role = "error",
+                content = "No active AI provider is configured. Please select or add an API in the API Hub.",
+                spokenText = "No active AI provider is configured. Please check your API Hub.",
+                timestamp = System.currentTimeMillis(),
+                isError = true
+            )
+            chatDao.insertMessage(errorMsg)
+            return@withContext Result.failure(IllegalStateException("No active provider configured."))
+        }
+
+        if (config.apiKey.isBlank()) {
+            val errorMsg = ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
+                role = "error",
+                content = "API key is missing for ${config.name}. Tap 'Configure API' to enter your API key.",
+                spokenText = "API key is missing for ${config.name}. Please enter your key.",
+                timestamp = System.currentTimeMillis(),
+                isError = true
+            )
+            chatDao.insertMessage(errorMsg)
+            return@withContext Result.failure(IllegalStateException("API key is missing."))
+        }
+
+        // 3. Check memory context if enabled
+        val memoryPrompt = if (memoryEnabled) memoryRepository.getMemoryContext() else null
+
+        // 4. Send request via isolated provider
+        val provider = ProviderRegistry.getProvider(config.providerType)
+        val result = provider.generateChat(config, allHistory, memoryPrompt)
+
+        result.fold(
+            onSuccess = { response ->
+                // Check if the response contains structured cards or topic deep dives
+                var cardType: String? = null
+                var cardJson: String? = null
+
+                if (userText.contains("quiz", ignoreCase = true) || userText.contains("test my knowledge", ignoreCase = true)) {
+                    cardType = "quiz"
+                    cardJson = buildQuizCardJson(userText)
+                } else if (userText.contains("aqueduct", ignoreCase = true) || userText.contains("deep dive", ignoreCase = true) || userText.contains("diagram", ignoreCase = true)) {
+                    cardType = "diagram"
+                    cardJson = buildAqueductDiagramJson()
+                }
+
+                val assistantMessage = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = "assistant",
+                    content = response.text,
+                    spokenText = response.spokenText.ifBlank { SpeechCleaner.cleanForSpeech(response.text) },
+                    timestamp = System.currentTimeMillis(),
+                    cardType = cardType,
+                    cardJson = cardJson
+                )
+                chatDao.insertMessage(assistantMessage)
+                Result.success(assistantMessage)
+            },
+            onFailure = { error ->
+                val errorMsg = ChatMessageEntity(
+                    id = UUID.randomUUID().toString(),
+                    sessionId = sessionId,
+                    role = "error",
+                    content = "Connection failed: ${error.message}",
+                    spokenText = "Connection failed. Please check your API settings.",
+                    timestamp = System.currentTimeMillis(),
+                    isError = true
+                )
+                chatDao.insertMessage(errorMsg)
+                Result.failure(error)
+            }
+        )
+    }
+
+    private fun buildQuizCardJson(prompt: String): String {
+        return """
+        {
+          "question": "Which of the following is NOT a primary function of the human stomach?",
+          "options": [
+            {"id": "A", "text": "Producing enzymes that break down proteins", "isCorrect": false, "explanation": "This is a key function of the stomach via pepsin."},
+            {"id": "B", "text": "Absorbing most nutrients into the bloodstream", "isCorrect": true, "explanation": "The small intestine is the primary site of nutrient absorption."},
+            {"id": "C", "text": "Mixing food with gastric juices to form chyme", "isCorrect": false, "explanation": "Mechanical and chemical churning occurs in the stomach."},
+            {"id": "D", "text": "Storing food temporarily before intestinal release", "isCorrect": false, "explanation": "The stomach holds food for 2 to 4 hours."}
+          ]
+        }
+        """.trimIndent()
+    }
+
+    private fun buildAqueductDiagramJson(): String {
+        return """
+        {
+          "title": "Roman Aqueduct Architecture",
+          "labels": [
+            {"name": "Mountain source", "desc": "Natural springs collected in high-altitude catchment reservoirs."},
+            {"name": "Underground conduits", "desc": "Subterranean channels protected water from contamination and evaporation."},
+            {"name": "Aqueduct bridge", "desc": "Tiered stone arches engineered with steady gradient slopes."},
+            {"name": "Distribution station", "desc": "Castellum divisorium settling tank dividing flow to public baths and fountains."},
+            {"name": "Inverted siphon", "desc": "Pressurized lead piping conveying water across deep river valleys."}
+          ]
+        }
+        """.trimIndent()
+    }
+}
